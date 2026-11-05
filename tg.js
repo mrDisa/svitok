@@ -56,5 +56,19 @@ const Tg = (() => {
     try { wa.openTelegramLink(link); return true; } catch { return false; }
   }
 
-  return { inTg, ready, shareText, initData: () => wa?.initData || '', get wa() { return wa; } };
+  /* иконка мини-аппа на экране «Домой» (Telegram 8.0+): unsupported | unknown | added | missed */
+  function homeScreenStatus() {
+    return new Promise((resolve) => {
+      if (!wa || !wa.isVersionAtLeast?.('8.0') || typeof wa.checkHomeScreenStatus !== 'function') { resolve('unsupported'); return; }
+      const t = setTimeout(() => resolve('unknown'), 1500);
+      try { wa.checkHomeScreenStatus((st) => { clearTimeout(t); resolve(st || 'unknown'); }); } catch { clearTimeout(t); resolve('unsupported'); }
+    });
+  }
+  function addToHomeScreen(onAdded) {
+    if (!wa || typeof wa.addToHomeScreen !== 'function') return false;
+    try { wa.onEvent('homeScreenAdded', () => onAdded && onAdded()); } catch { /* */ }
+    try { wa.addToHomeScreen(); return true; } catch { return false; }
+  }
+
+  return { inTg, ready, shareText, homeScreenStatus, addToHomeScreen, initData: () => wa?.initData || '', get wa() { return wa; } };
 })();

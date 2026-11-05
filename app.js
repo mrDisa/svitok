@@ -773,12 +773,20 @@ function renderMore() {
     </div>
     <div class="group">
       <button class="row" data-share-app><div class="grow">Поделиться приложением<small>Отправьте ссылку друзьям и близким</small></div>${I.share}</button>
+      ${Tg.inTg ? `<button class="row" data-tg-home hidden><div class="grow">Добавить на экран «Домой»<small>Иконка «Свитка» рядом с другими приложениями</small></div>${I.next}</button>` : ''}
       ${STANDALONE || Tg.inTg ? '' : `<a class="row" href="./#install" style="color:inherit;text-decoration:none"><div class="grow">Установить на экран «Домой»<small>Запуск как обычное приложение</small></div>${I.next}</a>`}
       <button class="row" data-goal-open><div class="grow">Цель на день<small>${esc(Goal.label())}</small></div>${I.next}</button>
       <button class="row" data-onb><div class="grow">Как пользоваться<small>Показать знакомство ещё раз</small></div>${I.next}</button>
       <button class="row" data-reset><div class="grow">Сбросить рекомендации<small>Лента снова станет общей</small></div></button>
     </div>
     <p class="about"><b>Свиток</b> — бесплатное приложение без рекламы и подписок. Текст: Синодальный перевод, канонические книги. Лайки, избранное и место чтения хранятся только на этом устройстве.</p>`;
+  // в Telegram предлагаем иконку на экране «Домой», если клиент это умеет и её ещё нет
+  if (Tg.inTg) Tg.ready().then(() => Tg.homeScreenStatus()).then((st) => {
+    const b = $('[data-tg-home]');
+    if (!b) return;
+    if (st === 'missed' || st === 'unknown') b.hidden = false;
+    else if (st === 'added') { b.hidden = false; b.disabled = true; $('small', b).textContent = 'Уже на экране «Домой» ✓'; }
+  });
 }
 function applyScale() { document.documentElement.style.setProperty('--scale', S.scale); }
 function initMore() {
@@ -793,6 +801,8 @@ function initMore() {
       const data = { title: 'Свиток', text: 'Библия, которую хочется листать. Бесплатно, без рекламы.', url: appUrl() };
       if (Tg.inTg && Tg.shareText(data.text, data.url)) return;
       try { if (navigator.share) await navigator.share(data); else { await copyText(data.url); toast('Ссылка скопирована'); } } catch { /* отмена */ }
+    } else if (e.target.closest('[data-tg-home]')) {
+      if (!Tg.addToHomeScreen(() => { toast('Иконка добавлена на экран «Домой»'); renderMore(); })) toast('Эта версия Telegram пока не умеет добавлять иконку');
     } else if (e.target.closest('[data-remind]')) {
       Reminders.open();
     } else if (e.target.closest('[data-goal-open]')) {
@@ -972,7 +982,6 @@ function startLanding() {
   $('.os-tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-os]'); if (b) setOS(b.dataset.os); });
   setOS(IS_IOS ? 'ios' : IS_ANDROID ? 'android' : 'desktop');
 
-  if (!IS_IOS) $('#cta-install').firstChild.textContent = 'Установить на телефон ';
 
   // подсказки для iPhone не в Safari
   const notice = $('#ios-notice');

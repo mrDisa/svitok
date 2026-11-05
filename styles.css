@@ -151,6 +151,22 @@ svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .msg-ref{font-family:var(--serif);font-style:italic;color:var(--l-accent);font-size:12.5px}
 
 /* установка */
+.btn-tg svg{width:20px;height:20px;transition:none}
+.btn-tg:hover svg{transform:none}
+.tg-start{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:28px 56px;align-items:start;padding:30px 0 40px;border-top:1px solid var(--l-line)}
+.tg-start-cta{display:flex;flex-direction:column;align-items:flex-start;gap:14px}
+.tg-start-cta .btn{min-height:56px;padding:0 28px;font-size:16.5px}
+.tg-handle{color:var(--l-muted);font-size:14px}
+.tg-handle b{color:var(--l-text);font-weight:600}
+.tg-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:18px}
+.tg-steps li{display:flex;gap:16px}
+.tg-steps .step-n{padding-top:2px}
+.tg-steps b{display:block;font-size:17px;font-weight:600;margin-bottom:4px}
+.tg-steps small{display:block;color:var(--l-muted);font-size:15px;line-height:1.55}
+.alt-head{margin:20px 0 26px;padding-top:40px;border-top:1px solid var(--l-line)}
+.alt-head h3{font-family:var(--serif);font-weight:400;font-size:clamp(24px,2.8vw,32px);margin:0 0 8px}
+.alt-head p{margin:0;color:var(--l-muted);line-height:1.6;max-width:40em}
+@media (max-width:760px){.tg-start{grid-template-columns:1fr;gap:26px}.tg-start-cta .btn{width:100%}}
 .os-tabs{display:flex;gap:28px;margin:0 0 36px;border-bottom:1px solid var(--l-line)}
 .os-tabs button{padding:0 0 14px;margin-bottom:-1px;font-size:15px;font-weight:600;color:var(--l-muted);border-bottom:1.5px solid transparent;transition:color .2s,border-color .2s}
 .os-tabs button:hover{color:var(--l-text)}
