@@ -20,8 +20,6 @@ const I = {
   heart: svg('<path d="M12 20.5s-7.6-4.6-9.4-9.4C1.3 7.6 3.5 4.3 7 4.3c2 0 3.5 1 5 3 1.5-2 3-3 5-3 3.5 0 5.7 3.3 4.4 6.8-1.8 4.8-9.4 9.4-9.4 9.4z"/>'),
   bookmark: svg('<path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4-6 4V4.5a1 1 0 0 1 1-1z"/>'),
   share: svg('<path d="M12 3v12M8 7l4-4 4 4M7 11H6a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/>'),
-  volume: svg('<path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>'),
-  stop: svg('<rect x="7" y="7" width="10" height="10" rx="1.5"/>'),
   book: svg('<path d="M3 5.5C5.5 4 8.5 4 12 6c3.5-2 6.5-2 9-.5V19c-2.5-1.5-5.5-1.5-9 .5-3.5-2-6.5-2-9-.5z"/><path d="M12 6v13.5"/>'),
   back: svg('<path d="M15 5l-7 7 7 7"/>'),
   next: svg('<path d="M9 5l7 7-7 7"/>'),
@@ -114,11 +112,6 @@ async function copyText(text) {
     ta.remove(); return ok;
   }
 }
-const spokenRef = (it) => {
-  const b = BOOKS[it.b];
-  const [v1, v2] = it.v;
-  return `${b.r}, глава ${it.c}, ${v1 === v2 ? 'стих ' + v1 : 'стихи с ' + v1 + ' по ' + v2}`;
-};
 
 /* ======================================================================
    ЛЕНТА
@@ -180,6 +173,7 @@ function cardHTML(it, tag) {
   const liked = S.likes.has(it.id);
   const saved = S.saved.some((s) => s.id === it.id);
   return `<article class="card size-${size}" data-key="${key}" style="--g1:${g1};--g2:${g2}">
+    <div class="scene-wrap"></div><div class="scrim"></div>
     <div class="card-body">
       <div class="card-tag">${esc(tag || TOPIC_NAME[it.t])}</div>
       <p class="verse">${esc(it.x)}</p>
@@ -189,10 +183,20 @@ function cardHTML(it, tag) {
       <button class="act${liked ? ' on' : ''}" data-act="like" aria-label="Нравится"><span class="ico">${I.heart}</span>Нравится</button>
       <button class="act${saved ? ' on' : ''}" data-act="save" aria-label="Сохранить"><span class="ico">${I.bookmark}</span>Сохранить</button>
       <button class="act" data-act="share" aria-label="Поделиться"><span class="ico">${I.share}</span>Поделиться</button>
-      <button class="act" data-act="listen" aria-label="Слушать"><span class="ico">${I.volume}</span>Слушать</button>
       <button class="act" data-act="read" aria-label="Читать главу"><span class="ico">${I.book}</span>Глава</button>
     </div>
   </article>`;
+}
+
+/* Живой фон рисуем только у соседних карточек, чтобы лента оставалась лёгкой */
+function syncScenes(cards, idx) {
+  cards.forEach((c, i) => {
+    const wrap = c.firstElementChild;
+    if (!wrap || !wrap.classList.contains('scene-wrap')) return;
+    const near = i >= idx - 1 && i <= idx + 2;
+    if (near && !wrap.firstChild) wrap.innerHTML = Scenes.svg(cardItems.get(c.dataset.key).id);
+    else if (!near && wrap.firstChild && Math.abs(i - idx) > 3) wrap.innerHTML = '';
+  });
 }
 
 function appendCards(n) {
@@ -204,7 +208,6 @@ function appendCards(n) {
 }
 
 function resetFeed() {
-  stopSpeech();
   const f = feedEl();
   f.innerHTML = '';
   cardItems.clear();
@@ -216,6 +219,9 @@ function resetFeed() {
   }
   appendCards(currentTopic === 'foryou' ? 7 : 8);
   f.scrollTop = 0;
+  const cards = $$('.card', f);
+  cards[0]?.classList.add('is-active');
+  syncScenes(cards, 0);
 }
 
 function bump(topic, delta) {
@@ -235,13 +241,15 @@ function onCardActive(card) {
       else if (dwell < 1.2) bump(it.t, -0.25);
     }
   }
+  if (activeCard) activeCard.classList.remove('is-active');
+  card.classList.add('is-active');
   activeCard = card;
   activeSince = performance.now();
-  stopSpeech();
   const cards = $$('.card', feedEl());
   const idx = cards.indexOf(card);
   if (idx > 0 && !S.hinted) { S.hinted = true; store.set('hinted', true); $('#swipe-hint').hidden = true; }
   if (idx >= cards.length - 4) appendCards(8);
+  syncScenes($$('.card', feedEl()), idx);
   // держим DOM лёгким
   if (cards.length > 160 && idx > 80) {
     const f = feedEl();
@@ -292,31 +300,6 @@ function burst(card, x, y) {
   setTimeout(() => el.remove(), 850);
 }
 
-/* ---------- озвучка ---------- */
-let speakingBtn = null;
-function ruVoice() {
-  const vs = speechSynthesis.getVoices();
-  return vs.find((v) => v.lang === 'ru-RU' && /Milena|Милена|Katya|Катя/i.test(v.name)) || vs.find((v) => /^ru/i.test(v.lang));
-}
-function stopSpeech() {
-  if ('speechSynthesis' in window) speechSynthesis.cancel();
-  if (speakingBtn) { speakingBtn.classList.remove('on'); $('.ico', speakingBtn).innerHTML = I.volume; speakingBtn = null; }
-}
-function speak(it, btn) {
-  if (!('speechSynthesis' in window)) { toast('Озвучка не поддерживается'); return; }
-  if (speakingBtn === btn) { stopSpeech(); return; }
-  stopSpeech();
-  const u = new SpeechSynthesisUtterance(it.x + ' … ' + spokenRef(it));
-  u.lang = 'ru-RU';
-  const v = ruVoice(); if (v) u.voice = v;
-  u.rate = 0.92;
-  u.onend = u.onerror = () => { if (speakingBtn === btn) stopSpeech(); };
-  speakingBtn = btn;
-  btn.classList.add('on');
-  $('.ico', btn).innerHTML = I.stop;
-  speechSynthesis.speak(u);
-}
-
 function initFeed() {
   io = new IntersectionObserver((entries) => {
     entries.forEach((e) => { if (e.isIntersecting) onCardActive(e.target); });
@@ -346,8 +329,7 @@ function initFeed() {
       if (act === 'like') toggleLike(card, it);
       else if (act === 'save') toggleSave(it);
       else if (act === 'share') openShare(it);
-      else if (act === 'listen') speak(it, btn);
-      else if (act === 'read') { stopSpeech(); openTab('bible'); openChapter(it.b, it.c, it.v); }
+      else if (act === 'read') { openTab('bible'); openChapter(it.b, it.c, it.v); }
       return;
     }
     const now = Date.now();
@@ -397,6 +379,17 @@ async function renderShareImage(it) {
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   g = ctx.createRadialGradient(W * 0.9, H, 0, W * 0.9, H, W);
   g.addColorStop(0, 'rgba(0,0,0,0.35)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  try {
+    // тот же пейзаж, что и на карточке; растягиваем «по обложке»
+    const img = await Scenes.image(it.id);
+    const k = Math.max(W / Scenes.W, H / Scenes.H);
+    const dw = Scenes.W * k, dh = Scenes.H * k;
+    ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  } catch { /* остаётся градиент */ }
+  // затемнение под текстом для читаемости
+  g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, 'rgba(0,0,0,0.12)'); g.addColorStop(0.5, 'rgba(0,0,0,0.42)'); g.addColorStop(1, 'rgba(0,0,0,0.3)');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
   const maxW = W - 200;
@@ -766,7 +759,6 @@ function openTab(name) {
     if (name === 'bible' && bibleRoute.view !== 'books') renderBooks();
     return;
   }
-  stopSpeech();
   closeSheet();
   if (name !== 'bible') clearSelection();
   $('#app').dataset.tab = name;
@@ -802,8 +794,6 @@ async function startApp() {
   $('#sheet-backdrop').addEventListener('click', closeSheet);
   $('#install-pill').hidden = STANDALONE || S.pillHidden;
   $('[data-hide-pill]').addEventListener('click', () => { S.pillHidden = true; store.set('pillHidden', true); $('#install-pill').hidden = true; });
-  document.addEventListener('visibilitychange', () => { if (document.hidden) stopSpeech(); });
-  if ('speechSynthesis' in window) speechSynthesis.getVoices();
 
   // Вся Библия тихо скачивается для офлайна в установленном приложении
   if (STANDALONE && offlineState !== 'done') {
@@ -829,6 +819,7 @@ function startLanding() {
 
   // анимация телефона
   const cards = $$('.mini-card');
+  cards.forEach((c, i) => c.insertAdjacentHTML('afterbegin', Scenes.svg('mini' + i, { scene: ['mountains', 'aurora', 'sea', 'rays'][i] })));
   let i = 0;
   cards[0].classList.add('cur');
   setInterval(() => {

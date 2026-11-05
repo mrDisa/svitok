@@ -65,7 +65,10 @@ svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .mini-card{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:0 46px 0 24px;background:radial-gradient(circle at 25% 18%,rgba(255,255,255,.16),transparent 55%),linear-gradient(165deg,var(--g1),var(--g2));transform:translateY(100%);transition:transform .9s cubic-bezier(.7,0,.2,1)}
 .mini-card.cur{transform:translateY(0)}
 .mini-card.prev{transform:translateY(-100%)}
-.mini-card p{font-family:var(--serif);font-size:19px;line-height:1.4;margin:0 0 14px}
+.mini-card .scene{z-index:0}
+.mini-card::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.2),rgba(0,0,0,.4) 50%,rgba(0,0,0,.25))}
+.mini-card p,.mini-card small{position:relative;z-index:1}
+.mini-card p{font-family:var(--serif);font-size:19px;line-height:1.4;margin:0 0 14px;text-shadow:0 1px 12px rgba(0,0,0,.4)}
 .mini-card small{font-family:var(--serif);font-style:italic;color:var(--gold-2);font-size:13px}
 .mini-chips{position:absolute;z-index:2;top:34px;left:14px;right:0;display:flex;gap:6px;font-size:10px}
 .mini-chips span{padding:4px 9px;border-radius:99px;background:rgba(255,255,255,.12);white-space:nowrap}
@@ -162,8 +165,31 @@ main,.view{position:absolute;inset:0}
     radial-gradient(90% 60% at 90% 100%,rgba(0,0,0,.35),transparent 60%),
     linear-gradient(165deg,var(--g1),var(--g2));
   touch-action:manipulation}
-.card::after{content:'';position:absolute;inset:0;pointer-events:none;opacity:.10;mix-blend-mode:overlay;
+.card::after{content:'';position:absolute;inset:0;pointer-events:none;opacity:.07;mix-blend-mode:overlay;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+/* живые фоны */
+.scene-wrap{position:absolute;inset:0;pointer-events:none}
+.scene{position:absolute;inset:0;width:100%;height:100%;display:block;stroke:none}
+.scrim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.28) 0%,rgba(0,0,0,.08) 22%,rgba(0,0,0,.38) 50%,rgba(0,0,0,.2) 78%,rgba(0,0,0,.45) 100%)}
+.scene .tw{animation:sc-tw 3s ease-in-out infinite}
+.scene .drift{animation:sc-drift 40s ease-in-out infinite alternate}
+.scene .sway{animation:sc-sway 12s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center}
+.scene .wave{animation:sc-wave 12s linear infinite}
+.scene .shimmer{animation:sc-shim 2.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+.scene .float{animation:sc-float 9s ease-in-out infinite alternate}
+.scene .spin{animation:sc-spin 26s ease-in-out infinite alternate;transform-origin:195px -40px}
+.scene .dust{animation:sc-dust 12s linear infinite}
+.scene .shoot{animation:sc-shoot 8s ease-in infinite}
+.card:not(.is-active) .scene *{animation-play-state:paused}
+@keyframes sc-tw{50%{opacity:.12}}
+@keyframes sc-drift{to{transform:translateX(-70px)}}
+@keyframes sc-sway{from{transform:translateX(-26px) scaleY(.8);opacity:.6}to{transform:translateX(26px) scaleY(1.2);opacity:1}}
+@keyframes sc-wave{to{transform:translateX(-390px)}}
+@keyframes sc-shim{50%{opacity:.15;transform:scaleX(.55)}}
+@keyframes sc-float{to{transform:translateY(-46px)}}
+@keyframes sc-spin{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}
+@keyframes sc-dust{0%{transform:translate(0,0);opacity:0}15%{opacity:.85}100%{transform:translate(36px,-150px);opacity:0}}
+@keyframes sc-shoot{0%,86%{opacity:0;transform:translate(0,0)}88%{opacity:1}100%{opacity:0;transform:translate(-230px,150px)}}
 .card-body{position:absolute;inset:var(--top-h) 0 var(--tab-h) 0;display:flex;flex-direction:column;justify-content:center;padding:24px 78px 24px 28px}
 .card-tag{align-self:flex-start;font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--gold-2);background:rgba(0,0,0,.18);padding:5px 10px;border-radius:99px;margin-bottom:22px}
 .verse{font-family:var(--serif);font-size:calc(var(--fs) * var(--scale));line-height:1.42;margin:0 0 22px;text-wrap:pretty;text-shadow:0 1px 18px rgba(0,0,0,.25)}
@@ -181,7 +207,6 @@ main,.view{position:absolute;inset:0}
 .act svg{width:25px;height:25px}
 .act.on[data-act=like] svg{fill:var(--like);stroke:var(--like)}
 .act.on[data-act=save] svg{fill:var(--gold-2);stroke:var(--gold-2)}
-.act.on[data-act=listen] .ico{background:var(--gold);color:#2a1d08}
 .act.pop .ico{animation:pop .35s}
 @keyframes pop{40%{transform:scale(1.25)}}
 
