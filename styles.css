@@ -37,7 +37,7 @@ svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 #app{display:none}
 .mode-app #landing{display:none}
 .mode-app #app{display:block}
-.mode-app,.mode-app body{height:100%;overflow:hidden;overscroll-behavior:none}
+.mode-app,.mode-app body{height:100%;overflow:hidden;overscroll-behavior:none;background:#0e0b16}
 
 /* ============================ ЛЕНДИНГ ============================ */
 #landing{max-width:1120px;margin:0 auto;padding:0 20px;overflow-x:hidden}
@@ -141,6 +141,9 @@ section h2{font-family:var(--serif);font-size:clamp(28px,4vw,40px);line-height:1
 
 /* ============================ ПРИЛОЖЕНИЕ ============================ */
 #app{position:fixed;inset:0;background:#000;user-select:none;-webkit-user-select:none}
+/* iOS в режиме «с экрана Домой» иногда отдаёт высоту меньше экрана на высоту статус-бара:
+   тогда задаём высоту явно по размеру экрана (см. fitViewport в app.js) */
+.fit-screen #app{bottom:auto;height:var(--app-h,100%)}
 main,.view{position:absolute;inset:0}
 .view{display:none}
 .view.on{display:block}
@@ -279,8 +282,8 @@ main,.view{position:absolute;inset:0}
 .install-pill a{font-weight:700;color:var(--gold-2);text-decoration:none}
 .install-pill button{width:26px;height:26px;border-radius:50%;background:var(--surface-2);font-size:12px}
 
-.toast{position:absolute;z-index:60;left:50%;top:calc(var(--safe-t) + 14px);transform:translate(-50%,-140%);padding:11px 18px;border-radius:99px;background:rgba(245,239,228,.95);color:#16121e;font-weight:600;font-size:14px;transition:transform .3s cubic-bezier(.2,.8,.2,1);white-space:nowrap;pointer-events:none}
-.toast.on{transform:translate(-50%,0)}
+.toast{position:absolute;z-index:60;left:50%;top:calc(var(--safe-t) + 14px);transform:translate(-50%,-20px);opacity:0;visibility:hidden;padding:11px 18px;border-radius:99px;background:rgba(245,239,228,.95);color:#16121e;font-weight:600;font-size:14px;transition:transform .3s cubic-bezier(.2,.8,.2,1),opacity .25s,visibility .3s;white-space:nowrap;pointer-events:none}
+.toast.on{transform:translate(-50%,0);opacity:1;visibility:visible}
 
 @media (min-width:700px){
   /* на компьютере показываем приложение в «телефонной» колонке */

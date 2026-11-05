@@ -1,6 +1,6 @@
 /* Service Worker «Свитка»: офлайн-работа без сервера.
    При каждом обновлении сайта увеличивайте VERSION, чтобы телефоны получили новую версию. */
-const VERSION = 'svitok-v1';
+const VERSION = 'svitok-v2';
 const BIBLE = 'svitok-bible-v1'; // текст Библии не меняется, кэш живёт между версиями
 
 const SHELL = [
@@ -64,12 +64,18 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Остальное: отдаём из кэша мгновенно и тихо обновляем в фоне
+  // Остальное: сначала сеть (чтобы обновления приходили сразу), без сети или
+  // при медленной сети — из кэша
   e.respondWith(
     caches.open(VERSION).then(async (c) => {
-      const hit = await c.match(req, { ignoreSearch: true });
-      const net = fetch(req).then((res) => { if (res.ok) c.put(req, res.clone()); return res; }).catch(() => hit);
-      return hit || net;
+      const net = fetch(req).then((res) => { if (res.ok) c.put(req, res.clone()); return res; });
+      const slow = new Promise((_, rej) => setTimeout(() => rej(new Error('slow')), 3500));
+      try {
+        return await Promise.race([net, slow]);
+      } catch {
+        const hit = await c.match(req, { ignoreSearch: true });
+        return hit || net;
+      }
     })
   );
 });
