@@ -14,20 +14,6 @@ const IS_IOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel'
 const IS_ANDROID = /Android/.test(ua);
 const STANDALONE = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
 
-/* На iPhone в режиме приложения окно иногда короче экрана (снизу остаётся пустая полоса).
-   Растягиваем приложение на весь экран по его реальному размеру. */
-function fitViewport() {
-  if (!STANDALONE || !/iPhone|iPod/.test(navigator.userAgent)) return;
-  const portrait = matchMedia('(orientation: portrait)').matches;
-  const full = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
-  const h = Math.max(window.innerHeight, document.documentElement.clientHeight, full);
-  document.documentElement.style.setProperty('--app-h', h + 'px');
-  document.documentElement.classList.add('fit-screen');
-}
-fitViewport();
-window.addEventListener('resize', fitViewport);
-window.addEventListener('orientationchange', () => setTimeout(fitViewport, 300));
-
 /* ---------- иконки ---------- */
 const svg = (d, extra = '') => `<svg viewBox="0 0 24 24" ${extra}>${d}</svg>`;
 const I = {
