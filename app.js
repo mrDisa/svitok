@@ -42,10 +42,8 @@ const TOPICS = [
 const TOPIC_NAME = Object.fromEntries(TOPICS);
 
 const GRADS = [
-  ['#241d45', '#6d4a8c'], ['#0e2a36', '#2d6f78'], ['#3b1d3f', '#a2537f'], ['#2c1a10', '#9a6534'],
-  ['#0d3326', '#2f7558'], ['#121d33', '#3d6292'], ['#341f45', '#6f4f86'], ['#1b2a2c', '#55806f'],
-  ['#3a1a19', '#9b4a39'], ['#1f2125', '#5e636c'], ['#112430', '#3b6a80'], ['#2d1a3b', '#b9677f'],
-  ['#1a2340', '#7a5a9a'], ['#302312', '#a7864a'],
+  ['#2b2118', '#6b4e33'], ['#1d2420', '#4b5e4f'], ['#2a1c1c', '#6e3f36'], ['#1f2328', '#4a5866'],
+  ['#2a2516', '#6e6236'], ['#231d1f', '#5a4a4c'], ['#1c2226', '#3f5560'], ['#2b2420', '#7a5c45'],
 ];
 function gradFor(id) {
   let h = 0;
@@ -180,6 +178,14 @@ function pickArt(topic) {
   recentArt.push(p.id);
   if (recentArt.length > Math.min(14, PAINTINGS.length - 5)) recentArt.shift();
   return p;
+}
+/* Постоянная картина для стиха (избранное, входящие) */
+function artForId(id, topic) {
+  if (!PAINTINGS.length) return null;
+  const pool = (topic && ART_BY_TOPIC[topic]) || PAINTINGS;
+  let h = 0;
+  for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return pool[h % pool.length];
 }
 const artCredit = (p) => `${p.artist} · «${p.title.replace(/^«|»$/g, '')}»`;
 
@@ -697,7 +703,8 @@ function renderSaved() {
     : [...S.likes].map((id) => FEED_BY_ID.get(id)).filter(Boolean).reverse();
   const item = (it) => {
     const [g1, g2] = gradFor(it.id);
-    return `<div class="saved-item" role="button" tabindex="0" data-open="${esc(it.id)}" style="--g1:${g1};--g2:${g2}">
+    const art = artForId(it.id, it.t);
+    return `<div class="saved-item" role="button" tabindex="0" data-open="${esc(it.id)}" style="--g1:${g1};--g2:${g2}${art ? `;--img:url('${art.src}')` : ''}">
       <p>${esc(it.x)}</p><small>${esc(it.r)}</small>
       <button class="rm" data-rm="${esc(it.id)}" aria-label="Убрать">${savedTab === 'saved' ? I.close : I.heartFill}</button>
     </div>`;
@@ -839,7 +846,7 @@ function openTab(name) {
   $('#install-pill').hidden = name !== 'feed' || STANDALONE || S.pillHidden;
   if (name === 'saved') renderSaved();
   if (name === 'more') renderMore();
-  if (name === 'friends') Social.render();
+  if (name === 'profile') Social.render();
 }
 
 let appStarted = false;
@@ -981,9 +988,9 @@ function drawQR() {
   s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
   s.onload = () => {
     /* global QRCode */
-    new QRCode($('#qr'), { text: appUrl(), width: 160, height: 160, colorDark: '#14111f', colorLight: '#ffffff' });
+    new QRCode($('#qr'), { text: appUrl(), width: 160, height: 160, colorDark: '#0f0e0c', colorLight: '#ffffff' });
   };
-  s.onerror = () => { $('#qr').textContent = appUrl(); $('#qr').style.cssText += ';width:auto;height:auto;color:#14111f;word-break:break-all;font-size:13px'; };
+  s.onerror = () => { $('#qr').textContent = appUrl(); $('#qr').style.cssText += ';width:auto;height:auto;color:#0f0e0c;word-break:break-all;font-size:13px'; };
   document.head.appendChild(s);
 }
 

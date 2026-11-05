@@ -117,7 +117,9 @@ const Goal = (() => {
     document.addEventListener('visibilitychange', () => { if (!document.hidden) renderRing(); });
   }
 
-  return { init, count, setGoal, openSheet, label, optionsHTML, OPTIONS, DWELL, get goal() { load(); return goal; }, versesWord };
+  function stats() { fresh(); return { n: day.n, goal, streak: streak.count, done: day.done }; }
+
+  return { init, count, setGoal, openSheet, label, stats, optionsHTML, OPTIONS, DWELL, get goal() { load(); return goal; }, versesWord };
 })();
 
 /* ---------------- знакомство при первом запуске ---------------- */

@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0.45" y2="1">
-      <stop offset="0" stop-color="#3b2b69"/><stop offset="1" stop-color="#14101f"/>
+      <stop offset="0" stop-color="#3a2c1d"/><stop offset="1" stop-color="#0e0c0a"/>
     </linearGradient>
     <radialGradient id="glow" cx="0.5" cy="0.42" r="0.55">
-      <stop offset="0" stop-color="#f6d59a" stop-opacity="0.38"/><stop offset="1" stop-color="#f6d59a" stop-opacity="0"/>
+      <stop offset="0" stop-color="#e9cf9c" stop-opacity="0.32"/><stop offset="1" stop-color="#f6d59a" stop-opacity="0"/>
     </radialGradient>
     <linearGradient id="sheet" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#fbf3e2"/><stop offset="1" stop-color="#ead8b5"/>

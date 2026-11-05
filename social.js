@@ -27,10 +27,11 @@ const Social = (() => {
     tg: '<svg viewBox="0 0 24 24"><path d="M21 4L3 11l6 2 2 6 3-4 5 4z" fill="currentColor" stroke="none"/></svg>',
     mail: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
     edit: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
+    person: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20.5c1-4 4.3-6.5 8-6.5s7 2.5 8 6.5"/></svg>',
     link: '<svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
   };
 
-  const el = () => $('#friends');
+  const el = () => $('#profile');
   const AVATAR_PREFIX = `${CFG.supabaseUrl}/storage/v1/object/public/avatars/`;
   const avatar = (p, size = 44) => {
     const c = COLORS[(p?.avatar_color ?? 0) % COLORS.length];
@@ -113,7 +114,7 @@ const Social = (() => {
   }
   function badgeCount() { return incoming.length + inbox.filter((s) => !s.read_at).length; }
   function updateBadge() {
-    const b = $('#tabbar [data-tab=friends]');
+    const b = $('#tabbar [data-tab=profile]');
     if (!b) return;
     let dot = $('.badge', b);
     const n = badgeCount();
@@ -125,25 +126,32 @@ const Social = (() => {
     if (!sb) return;
     await loadMe();
     await loadAll();
-    if ($('[data-view=friends]').classList.contains('on')) render();
+    if ($('[data-view=profile]').classList.contains('on')) render();
   }
 
   /* ---------------- экран «Друзья» ---------------- */
+  const plural = (n, a, b, c) => { const m = n % 10, h = n % 100; return m === 1 && h !== 11 ? a : m >= 2 && m <= 4 && (h < 12 || h > 14) ? b : c; };
+  function statsHTML() {
+    const g = typeof Goal !== 'undefined' ? Goal.stats() : { n: 0, goal: 10, streak: 0 };
+    return `<div class="p-stats">
+      <button class="p-stat" data-f="goal"><b>${g.streak}</b><span>${plural(g.streak, 'день', 'дня', 'дней')} подряд</span></button>
+      <button class="p-stat" data-f="goal"><b>${Math.min(g.n, g.goal)}<i>/${g.goal}</i></b><span>стихов сегодня</span></button>
+      <button class="p-stat" data-f="saved"><b>${S.saved.length}</b><span>сохранено</span></button>
+    </div>`;
+  }
+
   function render() {
-    if (!enabled) {
-      el().innerHTML = `<div class="page-head"><h1>Друзья</h1></div>
-        <div class="empty">${ICON.people}<br>Скоро здесь можно будет добавлять друзей и отправлять им стихи.</div>`;
-      return;
-    }
-    if (!me) { renderSignedOut(); return; }
+    if (!enabled || !me) { renderSignedOut(); return; }
     const unread = inbox.filter((s) => !s.read_at).length;
     el().innerHTML = `
-      <div class="page-head"><h1>Друзья</h1></div>
-      <button class="profile-card" data-f="edit">
-        ${avatar(me, 54)}
-        <div class="grow"><b>${esc(me.display_name)}</b><small>@${esc(me.username)}</small></div>
-        ${ICON.edit}
-      </button>
+      <div class="p-head">
+        ${avatar(me, 92)}
+        <h1>${esc(me.display_name)}</h1>
+        <p>@${esc(me.username)}</p>
+        <button class="pill-btn" data-f="edit">${ICON.edit}Изменить профиль</button>
+      </div>
+      ${statsHTML()}
+      <div class="sec-title">Друзья · ${friends.length}</div>
       <div class="f-actions">
         <button data-f="add">${ICON.plus}Добавить друга</button>
         <button data-f="invite">${ICON.link}Пригласить</button>
@@ -151,14 +159,13 @@ const Social = (() => {
       ${incoming.length ? `<div class="sec-title">Заявки в друзья · ${incoming.length}</div>
         <div class="group">${incoming.map(({ f, p }) => `<div class="row person">${avatar(p)}<div class="grow">${esc(p.display_name)}<small>@${esc(p.username)}</small></div>
           <button class="pill-btn gold" data-f="accept" data-id="${f.id}">Принять</button><button class="pill-btn" data-f="remove" data-id="${f.id}" aria-label="Отклонить">✕</button></div>`).join('')}</div>` : ''}
-      <div class="sec-title">Вам отправили${unread ? ` · ${unread} новых` : ''}</div>
-      ${inbox.length ? inbox.map(shareHTML).join('') : '<div class="hint-card">Когда друг отправит вам стих, он появится здесь.</div>'}
-      <div class="sec-title">Мои друзья · ${friends.length}</div>
       ${friends.length ? `<div class="group">${friends.map(({ f, p }) => `<div class="row person">${avatar(p)}<div class="grow">${esc(p.display_name)}<small>@${esc(p.username)}</small></div>
           <button class="pill-btn" data-f="unfriend" data-id="${f.id}" data-name="${esc(p.display_name)}">Удалить</button></div>`).join('')}</div>`
         : '<div class="hint-card">Пока никого. Нажмите «Добавить друга» или отправьте ссылку-приглашение.</div>'}
       ${outgoing.length ? `<div class="sec-title">Ждут ответа</div><div class="group">${outgoing.map(({ f, p }) => `<div class="row person">${avatar(p, 36)}<div class="grow">${esc(p.display_name)}<small>@${esc(p.username)}</small></div>
-          <button class="pill-btn" data-f="remove" data-id="${f.id}">Отменить</button></div>`).join('')}</div>` : ''}`;
+          <button class="pill-btn" data-f="remove" data-id="${f.id}">Отменить</button></div>`).join('')}</div>` : ''}
+      <div class="sec-title">Вам отправили${unread ? ` · ${unread} новых` : ''}</div>
+      ${inbox.length ? inbox.map(shareHTML).join('') : '<div class="hint-card">Когда друг отправит вам стих, он появится здесь.</div>'}`;
     // открыли экран — отмечаем стихи прочитанными
     if (unread) {
       sb.from('shares').update({ read_at: new Date().toISOString() }).eq('recipient', me.id).is('read_at', null)
@@ -167,7 +174,8 @@ const Social = (() => {
   }
   function shareHTML(s) {
     const [g1, g2] = gradFor(s.verse_id);
-    return `<div class="inbox-item${s.read_at ? '' : ' new'}" role="button" data-f="open" data-id="${s.id}" style="--g1:${g1};--g2:${g2}">
+    const art = typeof artForId === 'function' ? artForId(s.verse_id) : null;
+    return `<div class="inbox-item${s.read_at ? '' : ' new'}" role="button" data-f="open" data-id="${s.id}" style="--g1:${g1};--g2:${g2}${art ? `;--img:url('${art.src}')` : ''}">
       <div class="from">${avatar(s.s, 28)}<b>${esc(s.s?.display_name || 'Друг')}</b><span>${esc(ago(s.created_at))}</span></div>
       ${s.note ? `<div class="note">${esc(s.note)}</div>` : ''}
       <p>${esc(s.body)}</p><small>${esc(s.ref)}</small>
@@ -175,13 +183,19 @@ const Social = (() => {
   }
   function renderSignedOut() {
     el().innerHTML = `
-      <div class="page-head"><h1>Друзья</h1></div>
-      <div class="auth-hero">
+      <div class="p-head">
+        <span class="ava guest" style="width:92px;height:92px">${ICON.person}</span>
+        <h1>Гость</h1>
+        <p>Прогресс и избранное хранятся на этом телефоне</p>
+      </div>
+      ${statsHTML()}
+      <div class="p-card">
         <div class="auth-ico">${ICON.people}</div>
-        <h2>Делитесь Словом с близкими</h2>
-        <p>Добавляйте друзей и отправляйте им стихи прямо в приложении. Вход нужен только для этого — лента и Библия работают и без него.</p>
+        <h2>Друзья</h2>
+        ${enabled ? `<p>Войдите, чтобы добавлять друзей и отправлять им стихи прямо в приложении. Лента и Библия работают и без входа.</p>
         <button class="btn-auth tg" data-f="login-tg">${ICON.tg}Войти через Telegram</button>
-        ${CFG.emailLogin ? `<button class="btn-auth" data-f="login-mail">${ICON.mail}Войти по почте</button>` : ''}
+        ${CFG.emailLogin ? `<button class="btn-auth" data-f="login-mail">${ICON.mail}Войти по почте</button>` : ''}`
+        : '<p>Скоро здесь можно будет добавлять друзей и отправлять им стихи.</p>'}
       </div>`;
   }
 
@@ -283,7 +297,7 @@ const Social = (() => {
     await refresh();
     if (!me) { toast('Профиль не найден, попробуйте ещё раз'); return; }
     toast(`Добро пожаловать, ${me.display_name}!`);
-    openTab('friends');
+    openTab('profile');
     render();
     if (pendingAdd) { const u = pendingAdd; pendingAdd = null; addByUsername(u); }
   }
@@ -420,7 +434,7 @@ const Social = (() => {
     if (!enabled) { toast('Скоро'); return; }
     if (!me) {
       closeSheet();
-      openTab('friends');
+      openTab('profile');
       toast('Войдите, чтобы отправлять стихи друзьям');
       return;
     }
@@ -470,6 +484,8 @@ const Social = (() => {
     if (!b) return;
     const f = b.dataset.f;
     if (f === 'login-tg') loginTelegram();
+    else if (f === 'goal') { if (typeof Goal !== 'undefined') Goal.openSheet(); }
+    else if (f === 'saved') openTab('saved');
     else if (f === 'login-mail') loginMail();
     else if (f === 'edit') editProfile();
     else if (f === 'add') addFriendSheet();
@@ -502,10 +518,10 @@ const Social = (() => {
     await refresh().catch(() => {});
     render();
     if (pendingAdd) {
-      if (me) { const u = pendingAdd; pendingAdd = null; openTab('friends'); addByUsername(u); }
-      else { openTab('friends'); toast('Войдите, чтобы добавить друга'); }
+      if (me) { const u = pendingAdd; pendingAdd = null; openTab('profile'); addByUsername(u); }
+      else { openTab('profile'); toast('Войдите, чтобы добавить друга'); }
     }
-    document.addEventListener('visibilitychange', () => { if (!document.hidden && me) loadAll().then(() => { if ($('[data-view=friends]').classList.contains('on')) render(); }); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && me) loadAll().then(() => { if ($('[data-view=profile]').classList.contains('on')) render(); }); });
     setInterval(() => { if (!document.hidden && me) loadAll(); }, 90_000);
   }
 
