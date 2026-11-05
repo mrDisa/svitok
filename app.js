@@ -195,7 +195,7 @@ function syncScenes(cards, idx) {
     const wrap = c.firstElementChild;
     if (!wrap || !wrap.classList.contains('scene-wrap')) return;
     const near = i >= idx - 1 && i <= idx + 2;
-    if (near && !wrap.firstChild) wrap.innerHTML = Scenes.svg(cardItems.get(c.dataset.key).id);
+    if (near && !wrap.firstChild) { const it = cardItems.get(c.dataset.key); wrap.innerHTML = Scenes.svg(it.id, { topic: it.t }); }
     else if (!near && wrap.firstChild && Math.abs(i - idx) > 3) wrap.innerHTML = '';
   });
 }
@@ -241,6 +241,7 @@ function onCardActive(card) {
       if (dwell > 5) bump(it.t, 0.4);
       else if (dwell < 1.2) bump(it.t, -0.25);
     }
+    if (dwell >= Goal.DWELL) Goal.count();
   }
   if (activeCard) activeCard.classList.remove('is-active');
   card.classList.add('is-active');
@@ -395,7 +396,7 @@ async function renderShareImage(it) {
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   try {
     // тот же пейзаж, что и на карточке; растягиваем «по обложке»
-    const img = await Scenes.image(it.id);
+    const img = await Scenes.image(it.id, it.t);
     const k = Math.max(W / Scenes.W, H / Scenes.H);
     const dw = Scenes.W * k, dh = Scenes.H * k;
     ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
@@ -717,6 +718,8 @@ function renderMore() {
     <div class="group">
       <button class="row" data-share-app><div class="grow">Поделиться приложением<small>Отправьте ссылку друзьям и близким</small></div>${I.share}</button>
       ${STANDALONE ? '' : `<a class="row" href="./#install" style="color:inherit;text-decoration:none"><div class="grow">Установить на экран «Домой»<small>Запуск как обычное приложение</small></div>${I.next}</a>`}
+      <button class="row" data-goal-open><div class="grow">Цель на день<small>${esc(Goal.label())}</small></div>${I.next}</button>
+      <button class="row" data-onb><div class="grow">Как пользоваться<small>Показать знакомство ещё раз</small></div>${I.next}</button>
       <button class="row" data-reset><div class="grow">Сбросить рекомендации<small>Лента снова станет общей</small></div></button>
     </div>
     <p class="about"><b>Свиток</b> — бесплатное приложение без рекламы и подписок. Текст: Синодальный перевод, канонические книги. Лайки, избранное и место чтения хранятся только на этом устройстве.</p>`;
@@ -733,6 +736,10 @@ function initMore() {
     } else if (e.target.closest('[data-share-app]')) {
       const data = { title: 'Свиток', text: 'Библия, которую хочется листать. Бесплатно, без рекламы.', url: appUrl() };
       try { if (navigator.share) await navigator.share(data); else { await copyText(data.url); toast('Ссылка скопирована'); } } catch { /* отмена */ }
+    } else if (e.target.closest('[data-goal-open]')) {
+      Goal.openSheet();
+    } else if (e.target.closest('[data-onb]')) {
+      Onboarding.start(true);
     } else if (e.target.closest('[data-reset]')) {
       S.weights = {}; S.seen = []; persist.weights(); persist.seen();
       toast('Рекомендации сброшены');
@@ -821,6 +828,8 @@ async function startApp() {
   initSaved();
   initMore();
   Social.init();
+  Goal.init();
+  Onboarding.init();
 
   $('#tabbar').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) openTab(b.dataset.tab); });
   $('#sheet-backdrop').addEventListener('click', closeSheet);

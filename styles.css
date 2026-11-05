@@ -246,6 +246,14 @@ svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 #app:not([data-tab=feed])::before{content:'';position:absolute;z-index:15;top:0;left:0;right:0;height:var(--safe-t);background:var(--bg)}
 .topbar{position:absolute;z-index:20;top:0;left:0;right:0;padding-top:var(--safe-t);height:var(--top-h);background:linear-gradient(rgba(0,0,0,.45),transparent);pointer-events:none}
 .topbar.hidden{display:none}
+.topbar{display:flex;align-items:center}
+.topbar .chips{flex:1;min-width:0;padding-left:8px}
+.goal-ring{position:relative;flex:none;margin-left:12px;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;pointer-events:auto;background:rgba(0,0,0,.28);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.goal-ring .ring-svg{position:absolute;inset:1px;width:34px;height:34px}
+.goal-ring span{position:relative;font-size:12px;font-weight:700;color:#fff}
+.goal-ring.done span{color:var(--gold-2)}
+.goal-ring.pop{animation:ring-pop .7s cubic-bezier(.2,.8,.2,1)}
+@keyframes ring-pop{30%{transform:scale(1.35)}60%{transform:scale(.92)}}
 .chips{display:flex;gap:8px;overflow-x:auto;padding:10px 16px;scrollbar-width:none;pointer-events:auto;-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent)}
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:none;padding:7px 14px;border-radius:999px;font-size:14px;font-weight:600;background:rgba(255,255,255,.14);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);white-space:nowrap;color:rgba(255,255,255,.88)}
@@ -275,7 +283,19 @@ svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .scene .spin{animation:sc-spin 26s ease-in-out infinite alternate;transform-origin:195px -40px}
 .scene .dust{animation:sc-dust 12s linear infinite}
 .scene .shoot{animation:sc-shoot 8s ease-in infinite}
+.scene .bob{animation:sc-bob 5s ease-in-out infinite}
+.scene .flick{animation:sc-flick 3.2s ease-in-out infinite}
+.scene .flame{animation:sc-flame 1.6s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 100%}
+.scene .glowp{animation:sc-glowp 2.4s ease-in-out infinite}
+.scene .pulse{animation:sc-pulse 4s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+.scene .spin2{animation:sc-spin2 40s ease-in-out infinite alternate;transform-origin:195px 470px}
 .card:not(.is-active) .scene *{animation-play-state:paused}
+@keyframes sc-bob{50%{transform:translateY(-6px)}}
+@keyframes sc-flick{0%,100%{opacity:.75}30%{opacity:.5}55%{opacity:.9}80%{opacity:.6}}
+@keyframes sc-flame{0%,100%{transform:scale(1,1) skewX(0)}25%{transform:scale(.94,1.06) skewX(2deg)}50%{transform:scale(1.04,.95) skewX(-2deg)}75%{transform:scale(.97,1.04) skewX(1deg)}}
+@keyframes sc-glowp{50%{opacity:.75}}
+@keyframes sc-pulse{50%{transform:scale(1.08);opacity:.85}}
+@keyframes sc-spin2{from{transform:rotate(-8deg)}to{transform:rotate(8deg)}}
 @keyframes sc-tw{50%{opacity:.12}}
 @keyframes sc-drift{to{transform:translateX(-70px)}}
 @keyframes sc-sway{from{transform:translateX(-26px) scaleY(.8);opacity:.6}to{transform:translateX(26px) scaleY(1.2);opacity:1}}
@@ -451,6 +471,64 @@ a.as-btn,button.as-btn{background:linear-gradient(135deg,var(--gold-2),var(--gol
 .friend-pick button.on .ava{box-shadow:0 0 0 3px var(--bg-2),0 0 0 5px var(--gold-2)}
 .friend-pick button.on{color:var(--text)}
 .sheet-actions button.wide{grid-column:1/-1}
+
+/* цель на день */
+.goal-big{position:relative;width:120px;height:120px;margin:4px auto 16px;display:grid;place-items:center}
+.goal-big svg{position:absolute;inset:0;width:100%;height:100%}
+.goal-big div{position:relative;text-align:center}
+.goal-big b{display:block;font-family:var(--serif);font-size:38px;line-height:1}
+.goal-big span{color:var(--muted);font-size:13px}
+.goal-streak{text-align:center;color:var(--muted);margin:-6px 0 6px;font-size:14.5px}
+.goal-streak b{color:var(--gold-2)}
+.goal-opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.goal-opt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:14px;border-radius:16px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.08);transition:border-color .2s,background .2s}
+.goal-opt b{font-family:var(--serif);font-size:19px;font-weight:700}
+.goal-opt span{font-size:13px;color:var(--gold-2);font-weight:600}
+.goal-opt small{font-size:12.5px;color:var(--muted);line-height:1.35;margin-top:4px}
+.goal-opt.on{border-color:var(--gold-2);background:rgba(246,213,154,.1)}
+
+/* знакомство */
+.onb{position:absolute;z-index:80;inset:0;background:#000;overflow:hidden;animation:fade .3s}
+.onb.leave{animation:onb-out .35s forwards}
+@keyframes onb-out{to{opacity:0;transform:scale(1.03)}}
+.onb-bg,.onb-shade{position:absolute;inset:0}
+.onb-shade{background:linear-gradient(180deg,rgba(0,0,0,.15) 0%,rgba(0,0,0,.35) 35%,rgba(8,6,14,.88) 62%,rgba(8,6,14,.96) 100%)}
+.onb-panel{position:absolute;left:0;right:0;bottom:0;max-height:100%;overflow-y:auto;padding:24px 22px calc(26px + var(--safe-b))}
+.onb-dots{display:flex;gap:6px;justify-content:center;margin-bottom:22px}
+.onb-dots i{width:6px;height:6px;border-radius:3px;background:rgba(255,255,255,.25);transition:width .3s,background .3s}
+.onb-dots i.past{background:rgba(255,255,255,.5)}
+.onb-dots i.on{width:22px;background:var(--gold-2)}
+.onb-body.enter{animation:onb-in .45s cubic-bezier(.2,.8,.2,1)}
+@keyframes onb-in{from{opacity:0;transform:translateY(16px)}}
+.onb-body h1{font-family:var(--serif);font-size:30px;line-height:1.15;margin:0 0 12px;text-align:center}
+.onb-body p{color:rgba(245,239,228,.75);line-height:1.55;text-align:center;margin:0 auto 22px;max-width:26em;font-size:16px}
+.onb-body p b{color:var(--gold-2)}
+.onb-hero{width:96px;height:96px;margin:0 auto 22px;display:grid;place-items:center;border-radius:26px;animation:sc-bob 4s ease-in-out infinite}
+.onb-hero img{border-radius:22px;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+.onb-check{background:rgba(246,213,154,.15);border:1.5px solid rgba(246,213,154,.5);color:var(--gold-2);font-size:44px;border-radius:50%}
+.onb-btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:54px;border-radius:16px;margin-top:22px;background:linear-gradient(135deg,var(--gold-2),var(--gold));color:#2a1d08;font-weight:700;font-size:17px}
+.onb-skip{display:block;margin:14px auto 0;color:rgba(245,239,228,.55);font-size:14.5px;font-weight:600}
+.onb-back{position:absolute;top:16px;left:14px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.08);font-size:18px}
+.onb-demo{display:flex;flex-direction:column;gap:10px}
+.demo-row{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}
+.demo-row b{display:block;font-size:15.5px;margin-bottom:2px}
+.demo-row span{display:block;color:var(--muted);font-size:13.5px;line-height:1.35}
+.demo-ico{position:relative;flex:none;width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:rgba(246,213,154,.12);color:var(--gold-2);overflow:hidden}
+.demo-ico svg{width:24px;height:24px}
+.demo-swipe i{position:absolute;left:12px;right:12px;height:18px;border-radius:4px;background:rgba(246,213,154,.55);animation:demo-swipe 2.2s cubic-bezier(.7,0,.2,1) infinite}
+.demo-swipe i:first-child{top:14px}
+.demo-swipe i:last-child{top:46px;background:rgba(246,213,154,.3)}
+@keyframes demo-swipe{0%,30%{transform:translateY(0)}60%,100%{transform:translateY(-32px)}}
+.demo-heart svg{fill:var(--like);stroke:var(--like);animation:demo-heart 1.6s ease-in-out infinite}
+@keyframes demo-heart{0%,60%,100%{transform:scale(1)}15%{transform:scale(1.3)}30%{transform:scale(.95)}45%{transform:scale(1.15)}}
+.onb-topics{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.onb-topic{padding:10px 15px;border-radius:99px;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.1);font-weight:600;font-size:14.5px;transition:background .2s,border-color .2s,color .2s}
+.onb-topic.on{background:rgba(246,213,154,.16);border-color:var(--gold-2);color:var(--gold-2)}
+.onb .goal-opts{margin-top:4px}
+@media (min-width:1024px){
+  .onb-panel{left:50%;right:auto;bottom:50%;width:min(460px,92vw);transform:translate(-50%,50%);border-radius:26px;background:rgba(14,11,22,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.08);padding:28px}
+  .onb-shade{background:rgba(0,0,0,.35)}
+}
 
 /* шторка */
 .sheet-backdrop{position:absolute;z-index:40;inset:0;background:rgba(0,0,0,.55);animation:fade .2s}

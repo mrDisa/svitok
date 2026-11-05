@@ -108,8 +108,8 @@
       <article class="scene-banner rv" data-scene="mountains">
         <div class="tile-scene-bg"></div>
         <div class="scene-caption">
-          <h3>Живые фоны: горы, звёзды, северное сияние</h3>
-          <p>Восемь пейзажей, которые тихо движутся, пока вы читаете. Каждый стих — со своим фоном.</p>
+          <h3>Живые фоны: от гор и звёзд до храма и Вифлеемской звезды</h3>
+          <p>Шестнадцать сцен, которые тихо движутся, пока вы читаете: природа, храм, свечи, Христос на водах, Добрый Пастырь. Фон подбирается к теме стиха.</p>
         </div>
       </article>
 
@@ -260,6 +260,7 @@
 <!-- ============================ ПРИЛОЖЕНИЕ ============================ -->
 <div id="app" data-tab="feed">
   <header class="topbar">
+    <button class="goal-ring" id="goal-ring" aria-label="Цель на сегодня"></button>
     <div class="chips" id="chips" role="tablist"></div>
   </header>
 
@@ -294,12 +295,14 @@
   <div class="sheet-backdrop" id="sheet-backdrop" hidden></div>
   <div class="sheet" id="sheet" role="dialog" aria-modal="true" hidden></div>
   <div class="toast" id="toast" role="status"></div>
+  <div class="onb" id="onb" hidden></div>
 </div>
 
 <script src="config.js" defer></script>
 <script src="vendor/supabase-2.45.4.js" defer></script>
 <script src="scenes.js" defer></script>
 <script src="social.js" defer></script>
+<script src="onboarding.js" defer></script>
 <script src="app.js" defer></script>
 </body>
 </html>
