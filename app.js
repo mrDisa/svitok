@@ -27,6 +27,7 @@ const I = {
   copy: svg('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>'),
   image: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>'),
   text: svg('<path d="M5 6h14M5 12h14M5 18h9"/>'),
+  friend: svg('<path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"/>'),
   download: svg('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>'),
   heartFill: svg('<path d="M12 20.5s-7.6-4.6-9.4-9.4C1.3 7.6 3.5 4.3 7 4.3c2 0 3.5 1 5 3 1.5-2 3-3 5-3 3.5 0 5.7 3.3 4.4 6.8-1.8 4.8-9.4 9.4-9.4 9.4z"/>'),
 };
@@ -340,6 +341,18 @@ function initFeed() {
     } else lastTap = { t: now, card };
   });
 
+  // клавиатура на компьютере: ↓/↑, PageDown/PageUp, пробел — листать; L — «нравится»
+  document.addEventListener('keydown', (e) => {
+    if (!$('[data-view=feed]').classList.contains('on') || !$('#sheet').hidden) return;
+    if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const f = feedEl();
+    const k = e.key;
+    if (k === 'ArrowDown' || k === 'PageDown' || k === ' ' || k === 'j') { e.preventDefault(); f.scrollBy({ top: f.clientHeight, behavior: 'smooth' }); }
+    else if (k === 'ArrowUp' || k === 'PageUp' || k === 'k') { e.preventDefault(); f.scrollBy({ top: -f.clientHeight, behavior: 'smooth' }); }
+    else if ((k === 'l' || k === 'д') && activeCard) toggleLike(activeCard, cardItems.get(activeCard.dataset.key));
+  });
+
   resetFeed();
   if (!S.hinted) $('#swipe-hint').hidden = false;
 }
@@ -440,6 +453,7 @@ function openShare(it) {
     <div class="share-preview"><div class="ph" id="share-img"></div></div>
     <div class="sheet-actions">
       <button class="primary" data-s="image" disabled>${I.image}Поделиться картинкой</button>
+      ${Social.enabled ? `<button class="wide" data-s="friend">${I.friend}Отправить другу в «Свитке»</button>` : ''}
       <button data-s="text">${I.text}Текстом</button>
       <button data-s="copy">${I.copy}Скопировать</button>
     </div>`, (sheet) => {
@@ -455,6 +469,7 @@ function openShare(it) {
       const b = e.target.closest('[data-s]');
       if (!b) return;
       const kind = b.dataset.s;
+      if (kind === 'friend') { Social.sendVerse(it); return; }
       try {
         if (kind === 'image' && file) {
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -738,7 +753,22 @@ function startOfflineDownload(manual) {
 }
 function initSW() {
   if (!('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  // Новая версия сайта → новый Service Worker сразу берёт управление → перезагружаем страницу один раз.
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;
+    reloading = true;
+    location.reload();
+  });
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+    // iPhone не перезапускает приложение с экрана «Домой», а разворачивает из фона —
+    // поэтому проверяем обновления при каждом возвращении в приложение.
+    const check = () => reg.update().catch(() => {});
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+    window.addEventListener('focus', check);
+    setInterval(check, 30 * 60 * 1000);
+  }).catch(() => {});
   navigator.serviceWorker.addEventListener('message', (e) => {
     const d = e.data || {};
     if (d.type === 'bible-progress') {
@@ -768,6 +798,7 @@ function openTab(name) {
   $('#install-pill').hidden = name !== 'feed' || STANDALONE || S.pillHidden;
   if (name === 'saved') renderSaved();
   if (name === 'more') renderMore();
+  if (name === 'friends') Social.render();
 }
 
 let appStarted = false;
@@ -789,6 +820,7 @@ async function startApp() {
   initBible();
   initSaved();
   initMore();
+  Social.init();
 
   $('#tabbar').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) openTab(b.dataset.tab); });
   $('#sheet-backdrop').addEventListener('click', closeSheet);
@@ -830,6 +862,38 @@ function startLanding() {
     i = (i + 1) % cards.length;
   }, 3200);
 
+  // звёздное небо под размер экрана
+  const stars = $('#l-stars');
+  if (stars) {
+    const W = 1600, H = 1100;
+    stars.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    let s = '';
+    for (let k = 0; k < 220; k++) {
+      const r = Math.random() < 0.08 ? 1.6 : 0.5 + Math.random() * 0.9;
+      const tw = Math.random() < 0.3 ? ` class="tw" style="animation-delay:-${(Math.random() * 4).toFixed(1)}s"` : '';
+      s += `<circle cx="${(Math.random() * W).toFixed(0)}" cy="${(Math.random() * H * Math.random()).toFixed(0)}" r="${r.toFixed(1)}" opacity="${(0.25 + Math.random() * 0.7).toFixed(2)}"${tw}/>`;
+    }
+    stars.innerHTML = s;
+  }
+  // живые пейзажи в плитке и финальном блоке
+  $$('#landing [data-scene]').forEach((el) => {
+    const host = $('.tile-scene-bg, .final-bg', el);
+    if (host) host.innerHTML = Scenes.svg('land-' + el.dataset.scene, { scene: el.dataset.scene });
+  });
+  // плавное появление при прокрутке
+  const rv = $$('#landing .rv');
+  if ('IntersectionObserver' in window) {
+    const ob = new IntersectionObserver((entries) => entries.forEach((e) => {
+      if (e.isIntersecting) { e.target.classList.add('in'); ob.unobserve(e.target); }
+    }), { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+    rv.forEach((el, k) => { el.style.transitionDelay = `${Math.min(k % 4, 3) * 70}ms`; ob.observe(el); });
+  } else rv.forEach((el) => el.classList.add('in'));
+  // стеклянная шапка после прокрутки
+  const nav = $('#l-nav');
+  const onScroll = () => nav && nav.classList.toggle('scrolled', window.scrollY > 20);
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
   // вкладки платформ
   const setOS = (os) => {
     $$('.os-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.os === os));
@@ -839,8 +903,7 @@ function startLanding() {
   $('.os-tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-os]'); if (b) setOS(b.dataset.os); });
   setOS(IS_IOS ? 'ios' : IS_ANDROID ? 'android' : 'desktop');
 
-  if (IS_ANDROID) $('#cta-install').textContent = 'Установить на телефон';
-  else if (!IS_IOS) $('#cta-install').textContent = 'Установить на телефон';
+  if (!IS_IOS) $('#cta-install').firstChild.textContent = 'Установить на телефон ';
 
   // подсказки для iPhone не в Safari
   const notice = $('#ios-notice');

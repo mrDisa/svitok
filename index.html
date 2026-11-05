@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Свиток — Библия, которую хочется листать</title>
-<meta name="description" content="Стихи из Синодального перевода в формате ленты. Бесплатно навсегда, без рекламы и регистрации. Установите на iPhone за 10 секунд.">
+<meta name="description" content="Стихи из Синодального перевода в формате ленты. Бесплатно навсегда и без рекламы. Установите на iPhone за 10 секунд.">
 <meta name="theme-color" content="#14111f">
 <meta name="color-scheme" content="dark">
 
@@ -40,153 +40,220 @@
 
 <!-- ============================ ЛЕНДИНГ ============================ -->
 <div id="landing">
-  <header class="l-nav">
-    <a class="brand" href="./"><img src="icons/icon-192.png" alt="" width="32" height="32"><span>Свиток</span></a>
-    <a class="btn btn-small" href="#install">Установить</a>
+  <header class="l-nav" id="l-nav">
+    <div class="l-nav-in">
+      <a class="brand" href="./"><img src="icons/icon-192.png" alt="" width="28" height="28"><span>Свиток</span></a>
+      <nav class="l-links"><a href="#features">Возможности</a><a href="#install">Установка</a><a href="#faq">Вопросы</a></nav>
+      <a class="btn btn-small btn-line" href="#install">Установить</a>
+    </div>
   </header>
 
   <section class="hero">
-    <div class="hero-text">
-      <p class="eyebrow">Синодальный перевод · бесплатно навсегда</p>
-      <h1>Библия, которую хочется листать</h1>
-      <p class="lead">Стихи Писания в привычном формате ленты. Листаешь вверх, и на каждом экране слово о главном: надежда, мир, любовь, сила.</p>
-      <div class="hero-cta">
+    <picture class="hero-art">
+      <source media="(max-width: 760px)" srcset="img/christ-rembrandt-sm.jpg">
+      <img src="img/christ-rembrandt.jpg" alt="Рембрандт. Голова Христа" width="1125" height="1400" fetchpriority="high">
+    </picture>
+    <div class="hero-shade"></div>
+    <div class="hero-in">
+      <p class="eyebrow rv">Бесплатно навсегда · без рекламы</p>
+      <h1 class="rv">Библия, которую <em>хочется листать</em></h1>
+      <p class="lead rv">Стихи Писания в привычном формате ленты. Листаешь вверх — и на каждом экране слово о главном: надежда, мир, любовь, сила.</p>
+      <div class="hero-cta rv">
         <a class="btn btn-primary" href="#install" id="cta-install">Установить на iPhone</a>
-        <a class="btn btn-ghost" href="#app">Попробовать в браузере</a>
+        <a class="btn btn-line" href="#app">Попробовать в браузере</a>
       </div>
-      <ul class="pills">
-        <li>Без рекламы</li><li>Без подписок</li><li>Без регистрации</li><li>Работает без интернета</li>
+      <ul class="hero-meta rv">
+        <li>Синодальный перевод</li><li>Офлайн без интернета</li><li>Без обязательной регистрации</li>
       </ul>
     </div>
+    <p class="art-credit">Рембрандт ван Рейн. «Голова Христа», ок. 1648</p>
+  </section>
 
-    <div class="phone" aria-hidden="true">
-      <div class="phone-screen">
-        <div class="mini-chips"><span class="on">Для тебя</span><span>Надежда</span><span>Сила</span></div>
-        <div class="mini-feed">
-          <div class="mini-card" style="--g1:#2a2150;--g2:#7a4d8f"><p>Все могу в укрепляющем меня Иисусе Христе.</p><small>Филиппийцам 4:13</small></div>
-          <div class="mini-card" style="--g1:#0f2f3a;--g2:#2f7a7a"><p>Слово Твое — светильник ноге моей и свет стезе моей.</p><small>Псалтирь 118:105</small></div>
-          <div class="mini-card" style="--g1:#3a1f14;--g2:#a8683a"><p>Сей день сотворил Господь: возрадуемся и возвеселимся в оный!</p><small>Псалтирь 117:24</small></div>
-          <div class="mini-card" style="--g1:#13243d;--g2:#46699a"><p>Мужайтесь, и да укрепляется сердце ваше, все надеющиеся на Господа!</p><small>Псалтирь 30:25</small></div>
+  <main class="l-main">
+    <section class="showcase">
+      <div class="hero-visual rv" aria-hidden="true">
+        <div class="phone">
+          <div class="phone-island"></div>
+          <div class="phone-screen">
+            <div class="mini-chips"><span class="on">Для тебя</span><span>Надежда</span><span>Сила</span><span>Мир</span></div>
+            <div class="mini-feed">
+              <div class="mini-card" style="--g1:#2a2150;--g2:#7a4d8f"><p>Все могу в укрепляющем меня Иисусе Христе.</p><small>Филиппийцам 4:13</small></div>
+              <div class="mini-card" style="--g1:#0f2f3a;--g2:#2f7a7a"><p>Слово Твое — светильник ноге моей и свет стезе моей.</p><small>Псалтирь 118:105</small></div>
+              <div class="mini-card" style="--g1:#3a1f14;--g2:#a8683a"><p>Сей день сотворил Господь: возрадуемся и возвеселимся в оный!</p><small>Псалтирь 117:24</small></div>
+              <div class="mini-card" style="--g1:#13243d;--g2:#46699a"><p>Мужайтесь, и да укрепляется сердце ваше, все надеющиеся на Господа!</p><small>Псалтирь 30:25</small></div>
+            </div>
+            <div class="mini-actions"><i></i><i></i><i></i><i></i></div>
+            <div class="mini-tabbar"><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
         </div>
-        <div class="mini-actions"><i></i><i></i><i></i></div>
-        <div class="mini-tabbar"><i></i><i></i><i></i><i></i></div>
+        <div class="float-card fc1">Сохранено в избранное</div>
+        <div class="float-card fc2"><b>Стих дня</b> · Псалтирь 22:1</div>
+        <div class="float-card fc3">Отправлено другу</div>
       </div>
-    </div>
-  </section>
+      <div class="stats">
+        <div class="rv"><b>31 000+</b><span>стихов</span></div>
+        <div class="rv"><b>66</b><span>книг Библии</span></div>
+        <div class="rv"><b>12</b><span>тем для души</span></div>
+        <div class="rv"><b>0 ₽</b><span>навсегда</span></div>
+      </div>
+    </section>
 
-  <section class="features">
-    <h2>Всё, что нужно, и ничего лишнего</h2>
-    <div class="f-grid">
-      <article><div class="f-ico"><svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="3"/><path d="M12 8v8M9.5 10.5L12 8l2.5 2.5"/></svg></div><h3>Лента стихов</h3><p>Короткие стихи на красивых фонах. Листаете, как обычную ленту, только вместо шума слово Божие.</p></article>
-      <article><div class="f-ico"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></svg></div><h3>Подбирается под вас</h3><p>Ставьте «нравится», и лента чаще покажет темы, которые откликаются. Всё считается на телефоне, никаких серверов.</p></article>
-      <article><div class="f-ico"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg></div><h3>12 тем</h3><p>Надежда, при тревоге, мир, любовь, сила, утешение, вера, благодарность, мудрость, прощение, молитва, слова Христа.</p></article>
-      <article><div class="f-ico"><svg viewBox="0 0 24 24"><path d="M3 5.5C5.5 4 8.5 4 12 6c3.5-2 6.5-2 9-.5V19c-2.5-1.5-5.5-1.5-9 .5-3.5-2-6.5-2-9-.5z"/><path d="M12 6v13.5"/></svg></div><h3>Вся Библия</h3><p>Все 66 книг Синодального перевода. Из любого стиха можно открыть главу целиком и прочитать в контексте.</p></article>
-      <article><div class="f-ico"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M7 11H6v10h12V11h-1"/></svg></div><h3>Поделиться картинкой</h3><p>Красивая карточка со стихом для сторис или сообщения в один тап.</p></article>
-      <article><div class="f-ico"><svg viewBox="0 0 24 24"><path d="M3 18l5-6 4 4 3-3 6 5"/><circle cx="16" cy="7" r="2"/></svg></div><h3>Живые фоны</h3><p>Горы, звёздное небо, северное сияние, море на закате. Фон тихо движется, пока вы читаете.</p></article>
-    </div>
-  </section>
+    <section class="features" id="features">
+      <div class="sec-head rv">
+        <span class="kicker">Возможности</span>
+        <h2>Всё, что нужно, и ничего лишнего</h2>
+        <p>Простое приложение, чтобы каждый день находить слово, которое отзывается.</p>
+      </div>
 
-  <section class="install" id="install">
-    <h2>Как установить на iPhone</h2>
-    <p class="sub">10 секунд, без App Store. На экране «Домой» появится иконка, и «Свиток» будет открываться как обычное приложение.</p>
+      <article class="scene-banner rv" data-scene="mountains">
+        <div class="tile-scene-bg"></div>
+        <div class="scene-caption">
+          <h3>Живые фоны: горы, звёзды, северное сияние</h3>
+          <p>Восемь пейзажей, которые тихо движутся, пока вы читаете. Каждый стих — со своим фоном.</p>
+        </div>
+      </article>
 
-    <div class="os-tabs" role="tablist">
-      <button class="on" data-os="ios" role="tab">iPhone</button>
-      <button data-os="android" role="tab">Android</button>
-      <button data-os="desktop" role="tab">Компьютер</button>
-    </div>
-
-    <div class="os-pane on" data-pane="ios">
-      <div class="notice" id="ios-notice" hidden></div>
-      <ol class="steps">
-        <li>
-          <div class="step-n">1</div>
-          <div class="step-body">
-            <h3>Откройте эту страницу в Safari</h3>
-            <p>Если ссылка открылась внутри Telegram, ВКонтакте или другого приложения, нажмите «Открыть в Safari» или скопируйте ссылку.</p>
-            <button class="btn btn-small btn-ghost" data-copy-link>Скопировать ссылку</button>
+      <div class="f-list">
+        <article class="rv"><div class="t-ico"><svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="3"/><path d="M12 8v8M9.5 10.5L12 8l2.5 2.5"/></svg></div>
+          <h3>Лента стихов</h3><p>Листаете, как привычную ленту — только вместо шума слово Божие.</p></article>
+        <article class="rv"><div class="t-ico"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z"/></svg></div>
+          <h3>Подбирается под вас</h3><p>Ставьте «нравится» — лента чаще покажет то, что откликается. Всё считается на телефоне.</p></article>
+        <article class="rv"><div class="t-ico"><svg viewBox="0 0 24 24"><path d="M3 5.5C5.5 4 8.5 4 12 6c3.5-2 6.5-2 9-.5V19c-2.5-1.5-5.5-1.5-9 .5-3.5-2-6.5-2-9-.5z"/><path d="M12 6v13.5"/></svg></div>
+          <h3>Вся Библия</h3><p>66 книг. Из любого стиха — сразу в главу, чтобы прочитать в контексте.</p></article>
+        <article class="rv"><div class="t-ico"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M7 11H6v10h12V11h-1"/></svg></div>
+          <h3>Картинка для сторис</h3><p>Красивая карточка со стихом и пейзажем — в один тап.</p></article>
+        <article class="f-wide rv">
+          <h3>12 тем для любого состояния</h3>
+          <p class="topic-line">Надежда · При тревоге · Мир и покой · Любовь · Сила · Утешение · Вера · Благодарность · Мудрость · Прощение · Молитва · Слова Христа</p>
+        </article>
+        <article class="f-wide f-friends rv">
+          <div>
+            <h3>Делитесь с друзьями</h3>
+            <p>Добавляйте друзей по нику или ссылке и отправляйте стихи прямо в приложении — с парой слов от себя.</p>
           </div>
-        </li>
-        <li>
-          <div class="step-n">2</div>
-          <div class="step-body">
-            <h3>Нажмите «Поделиться»</h3>
-            <p>Это квадрат со стрелкой вверх на панели Safari. В iOS 26 сначала нажмите «⋯» внизу справа.</p>
-            <div class="mock mock-bar">
-              <span class="mock-ico"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></span>
-              <span class="mock-ico"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span>
-              <span class="mock-ico hl"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M6 11H5v9h14v-9h-1"/></svg></span>
-              <span class="mock-ico"><svg viewBox="0 0 24 24"><path d="M5 5h14v14H5z"/></svg></span>
-              <span class="mock-ico"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/></svg></span>
+          <div class="msg-mock">
+            <div class="msg-from"><span class="msg-ava"></span><b>Друг</b><small>только что</small></div>
+            <div class="msg-note">Подумал о тебе сегодня</div>
+            <p>Не бойся, ибо Я с тобою; не смущайся, ибо Я Бог твой…</p>
+            <small class="msg-ref">Исаия 41:10</small>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="install" id="install">
+      <div class="sec-head rv">
+        <span class="kicker">Установка</span>
+        <h2>На экран «Домой» за 10 секунд</h2>
+        <p>Без App Store. Появится иконка, и «Свиток» будет открываться как обычное приложение — на весь экран и без интернета.</p>
+      </div>
+
+      <div class="os-tabs rv" role="tablist">
+        <button class="on" data-os="ios" role="tab">iPhone</button>
+        <button data-os="android" role="tab">Android</button>
+        <button data-os="desktop" role="tab">Компьютер</button>
+      </div>
+
+      <div class="os-pane on" data-pane="ios">
+        <div class="notice" id="ios-notice" hidden></div>
+        <ol class="steps">
+          <li class="rv">
+            <div class="step-n">01</div>
+            <div class="step-body">
+              <h3>Откройте страницу в Safari</h3>
+              <p>Если ссылка открылась внутри Telegram или ВКонтакте — нажмите «Открыть в Safari» или скопируйте ссылку.</p>
+              <button class="btn btn-small btn-line" data-copy-link>Скопировать ссылку</button>
             </div>
-          </div>
-        </li>
-        <li>
-          <div class="step-n">3</div>
-          <div class="step-body">
-            <h3>Выберите «На экран „Домой“»</h3>
-            <p>Пролистайте меню вниз, пункт с плюсом в квадрате.</p>
-            <div class="mock mock-menu">
-              <div class="row"><span>Скопировать</span><svg viewBox="0 0 24 24"><path d="M8 8h11v11H8zM5 16V5h11"/></svg></div>
-              <div class="row"><span>Добавить в закладки</span><svg viewBox="0 0 24 24"><path d="M4 6c3-1.5 5-1.5 8 0 3-1.5 5-1.5 8 0v12c-3-1.5-5-1.5-8 0-3-1.5-5-1.5-8 0z"/></svg></div>
-              <div class="row hl"><span>На экран «Домой»</span><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/></svg></div>
+          </li>
+          <li class="rv">
+            <div class="step-n">02</div>
+            <div class="step-body">
+              <h3>Нажмите «Поделиться»</h3>
+              <p>Квадрат со стрелкой вверх. В iOS 26 сначала нажмите «⋯» внизу справа.</p>
+              <div class="mock mock-bar">
+                <span class="mock-ico"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></span>
+                <span class="mock-ico"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span>
+                <span class="mock-ico hl"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M6 11H5v9h14v-9h-1"/></svg></span>
+                <span class="mock-ico"><svg viewBox="0 0 24 24"><path d="M5 5h14v14H5z"/></svg></span>
+                <span class="mock-ico"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/></svg></span>
+              </div>
             </div>
-          </div>
-        </li>
-        <li>
-          <div class="step-n">4</div>
-          <div class="step-body">
-            <h3>Нажмите «Добавить»</h3>
-            <p>Готово! Найдите иконку «Свиток» на экране «Домой» и откройте приложение.</p>
-            <div class="mock mock-home">
-              <i></i><i></i><i></i><i></i>
-              <i></i><b><img src="icons/icon-180.png" alt=""><span>Свиток</span></b><i></i><i></i>
+          </li>
+          <li class="rv">
+            <div class="step-n">03</div>
+            <div class="step-body">
+              <h3>«На экран „Домой“»</h3>
+              <p>Пролистайте меню вниз — пункт с плюсом в квадрате.</p>
+              <div class="mock mock-menu">
+                <div class="mrow"><span>Скопировать</span><svg viewBox="0 0 24 24"><path d="M8 8h11v11H8zM5 16V5h11"/></svg></div>
+                <div class="mrow"><span>Добавить в закладки</span><svg viewBox="0 0 24 24"><path d="M4 6c3-1.5 5-1.5 8 0 3-1.5 5-1.5 8 0v12c-3-1.5-5-1.5-8 0-3-1.5-5-1.5-8 0z"/></svg></div>
+                <div class="mrow hl"><span>На экран «Домой»</span><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/></svg></div>
+              </div>
             </div>
+          </li>
+          <li class="rv">
+            <div class="step-n">04</div>
+            <div class="step-body">
+              <h3>Нажмите «Добавить»</h3>
+              <p>Готово! Откройте иконку «Свиток» на экране «Домой».</p>
+              <div class="mock mock-home">
+                <i></i><i></i><i></i><i></i>
+                <i></i><b><img src="icons/icon-180.png" alt="" width="180" height="180"><span>Свиток</span></b><i></i><i></i>
+              </div>
+            </div>
+          </li>
+        </ol>
+      </div>
+
+      <div class="os-pane" data-pane="android">
+        <div class="android-cta"><button class="btn btn-primary" id="android-install" hidden>Установить приложение</button></div>
+        <ol class="steps">
+          <li class="rv"><div class="step-n">01</div><div class="step-body"><h3>Откройте страницу в Chrome</h3><p>Или в Яндекс Браузере, Samsung Internet.</p></div></li>
+          <li class="rv"><div class="step-n">02</div><div class="step-body"><h3>Нажмите меню ⋮</h3><p>Три точки в правом верхнем углу.</p></div></li>
+          <li class="rv"><div class="step-n">03</div><div class="step-body"><h3>«Установить приложение»</h3><p>Или «Добавить на главный экран». Иконка появится рядом с остальными приложениями.</p></div></li>
+        </ol>
+      </div>
+
+      <div class="os-pane" data-pane="desktop">
+        <div class="qr-wrap">
+          <div id="qr" class="qr"></div>
+          <div>
+            <h3>Откройте на телефоне</h3>
+            <p>Наведите камеру iPhone на QR-код, откройте ссылку в Safari и следуйте шагам для iPhone.</p>
+            <p>Или <a href="#app">попробуйте прямо здесь</a>, в браузере.</p>
           </div>
-        </li>
-      </ol>
-    </div>
-
-    <div class="os-pane" data-pane="android">
-      <button class="btn btn-primary" id="android-install" hidden>Установить приложение</button>
-      <ol class="steps">
-        <li><div class="step-n">1</div><div class="step-body"><h3>Откройте страницу в Chrome</h3><p>Или в Яндекс Браузере, Samsung Internet.</p></div></li>
-        <li><div class="step-n">2</div><div class="step-body"><h3>Нажмите меню ⋮</h3><p>Три точки в правом верхнем углу.</p></div></li>
-        <li><div class="step-n">3</div><div class="step-body"><h3>«Установить приложение»</h3><p>Или «Добавить на главный экран». Иконка появится рядом с остальными приложениями.</p></div></li>
-      </ol>
-    </div>
-
-    <div class="os-pane" data-pane="desktop">
-      <div class="qr-wrap">
-        <div id="qr" class="qr"></div>
-        <div>
-          <h3>Откройте на телефоне</h3>
-          <p>Наведите камеру iPhone на QR-код, откройте ссылку в Safari и следуйте шагам для iPhone.</p>
-          <p>Или <a href="#app">попробуйте прямо здесь</a>, в браузере.</p>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <section class="faq">
-    <h2>Вопросы</h2>
-    <details><summary>Это правда бесплатно?</summary><p>Да, навсегда. Без рекламы, подписок и платных функций. Слово Божие не должно стоить денег.</p></details>
-    <details><summary>Почему не в App Store?</summary><p>Публикация в App Store платная и сложная. Веб-приложение ставится на iPhone так же, как обычное: иконка на экране, запуск на весь экран, работа без интернета.</p></details>
-    <details><summary>Какой перевод?</summary><p>Синодальный перевод, канонические книги Ветхого и Нового Завета. Текст находится в общественном достоянии.</p></details>
-    <details><summary>Работает без интернета?</summary><p>Да. После первого запуска лента и вся Библия сохраняются на телефоне.</p></details>
-    <details><summary>Вы собираете мои данные?</summary><p>Нет. Лайки, избранное и место чтения хранятся только на вашем телефоне. Аккаунтов и аналитики нет.</p></details>
-  </section>
+    <section class="faq" id="faq">
+      <div class="sec-head rv">
+        <span class="kicker">Вопросы</span>
+        <h2>Коротко о главном</h2>
+      </div>
+      <div class="faq-list">
+        <details class="rv"><summary>Это правда бесплатно?</summary><p>Да, навсегда. Без рекламы, подписок и платных функций. Слово Божие не должно стоить денег.</p></details>
+        <details class="rv"><summary>Почему не в App Store?</summary><p>Публикация в App Store платная и сложная. Веб-приложение ставится на iPhone так же, как обычное: иконка на экране, запуск на весь экран, работа без интернета.</p></details>
+        <details class="rv"><summary>Какой перевод?</summary><p>Синодальный перевод, канонические книги Ветхого и Нового Завета. Текст находится в общественном достоянии.</p></details>
+        <details class="rv"><summary>Работает без интернета?</summary><p>Да. После первого запуска лента и вся Библия сохраняются на телефоне.</p></details>
+        <details class="rv"><summary>Нужна ли регистрация?</summary><p>Нет. Лента, Библия и избранное работают без входа. Аккаунт нужен только чтобы добавлять друзей и отправлять им стихи — войти можно через Telegram.</p></details>
+        <details class="rv"><summary>Какие данные вы храните?</summary><p>Без входа — никаких: лайки, избранное и место чтения остаются на вашем телефоне. Если вы вошли, на сервере хранятся только имя, ник, фото профиля (если загрузите), список друзей и стихи, которые вы отправили или получили. Рекламы и аналитики нет.</p></details>
+      </div>
+    </section>
 
-  <section class="final">
-    <h2>Начните день со Слова</h2>
-    <div class="hero-cta">
-      <a class="btn btn-primary" href="#install">Установить на iPhone</a>
-      <a class="btn btn-ghost" href="#app">Открыть в браузере</a>
-    </div>
-  </section>
+    <section class="final rv">
+      <h2>Начните день со Слова</h2>
+      <p>Один стих утром может задать тон всему дню.</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="#install">Установить на iPhone</a>
+        <a class="btn btn-line" href="#app">Открыть в браузере</a>
+      </div>
+    </section>
+  </main>
 
   <footer class="l-foot">
-    <p>«Свиток» — бесплатное приложение. Текст Библии: Синодальный перевод (общественное достояние).</p>
+    <a class="brand" href="./"><img src="icons/icon-192.png" alt="" width="24" height="24"><span>Свиток</span></a>
+    <p>Бесплатное приложение. Текст Библии — Синодальный перевод. Картина — Рембрандт, «Голова Христа». Оба — общественное достояние.</p>
   </footer>
 </div>
 
@@ -199,18 +266,22 @@
   <main>
     <section class="view view-feed on" data-view="feed">
       <div class="feed" id="feed"></div>
-      <div class="swipe-hint" id="swipe-hint" hidden><span>↑</span>Листайте вверх</div>
+      <div class="swipe-hint" id="swipe-hint" hidden><span>↑</span><b class="m-only">Листайте вверх</b><b class="d-only">Колёсико мыши или ↓ на клавиатуре</b></div>
     </section>
     <section class="view" data-view="bible"><div class="scroller" id="bible"></div></section>
     <section class="view" data-view="saved"><div class="scroller" id="saved"></div></section>
+    <section class="view" data-view="friends"><div class="scroller" id="friends"></div></section>
     <section class="view" data-view="more"><div class="scroller" id="more"></div></section>
   </main>
 
   <nav class="tabbar" id="tabbar">
+    <a class="side-brand" href="./"><img src="icons/icon-192.png" alt="" width="30" height="30"><span>Свиток</span></a>
     <button class="on" data-tab="feed"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M10.5 9.5l4 2.5-4 2.5z"/></svg><span>Лента</span></button>
     <button data-tab="bible"><svg viewBox="0 0 24 24"><path d="M3 5.5C5.5 4 8.5 4 12 6c3.5-2 6.5-2 9-.5V19c-2.5-1.5-5.5-1.5-9 .5-3.5-2-6.5-2-9-.5z"/><path d="M12 6v13.5"/></svg><span>Библия</span></button>
     <button data-tab="saved"><svg viewBox="0 0 24 24"><path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4-6 4V4.5a1 1 0 0 1 1-1z"/></svg><span>Избранное</span></button>
+    <button data-tab="friends"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.2 3-5 6-5s5.4 1.8 6 5"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14c2.3.2 4 1.7 4.5 4.5"/></svg><span>Друзья</span></button>
     <button data-tab="more"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg><span>Ещё</span></button>
+      <a class="side-foot" href="./#install">Установить на телефон</a>
   </nav>
 
   <div class="install-pill" id="install-pill" hidden>
@@ -225,7 +296,10 @@
   <div class="toast" id="toast" role="status"></div>
 </div>
 
+<script src="config.js" defer></script>
+<script src="vendor/supabase-2.45.4.js" defer></script>
 <script src="scenes.js" defer></script>
+<script src="social.js" defer></script>
 <script src="app.js" defer></script>
 </body>
 </html>

@@ -1,0 +1,121 @@
+// Вход в «Свиток» через Telegram-бота.
+//
+// Схема (работает и в приложении с экрана «Домой», где всплывающие окна не дружат с iOS):
+//  1. Приложение создаёт случайный nonce → action:"start" → получает ссылку t.me/<бот>?start=login_<nonce>
+//  2. Человек открывает Telegram и жмёт «Старт». Telegram присылает это сообщение сюда (webhook).
+//     Мы записываем, какой Telegram-аккаунт подтвердил этот nonce.
+//  3. Приложение опрашивает action:"poll". Как только nonce подтверждён — создаём (или находим)
+//     пользователя Supabase и отдаём одноразовый token_hash, который приложение обменивает на сессию.
+//
+// Секреты (Supabase → Edge Functions → Secrets): TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET.
+// Деплой без проверки JWT: Telegram не умеет его присылать.
+
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+
+const BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
+const HOOK_SECRET = Deno.env.get('TELEGRAM_WEBHOOK_SECRET') ?? '';
+const BOT_NAME = Deno.env.get('TELEGRAM_BOT_USERNAME') ?? 'svitok_login_bot';
+const APP_URL = Deno.env.get('APP_URL') ?? 'https://mrdisa.github.io/svitok/';
+const TTL_MS = 10 * 60 * 1000;
+const NONCE_RE = /^[A-Za-z0-9_-]{32,64}$/;
+
+const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
+
+async function tg(method: string, body: Record<string, unknown>) {
+  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+const openApp = { inline_keyboard: [[{ text: 'Открыть «Свиток»', url: APP_URL }]] };
+const fresh = (createdAt: string) => Date.now() - new Date(createdAt).getTime() < TTL_MS;
+
+async function handleTelegram(req: Request) {
+  if (!HOOK_SECRET || req.headers.get('x-telegram-bot-api-secret-token') !== HOOK_SECRET) {
+    return new Response('forbidden', { status: 403 });
+  }
+  const update = await req.json().catch(() => ({}));
+  const msg = update.message;
+  if (!msg?.text || !msg.from || msg.from.is_bot) return new Response('ok');
+
+  const m = String(msg.text).match(/^\/start(?:\s+login_([A-Za-z0-9_-]{32,64}))?/);
+  if (!m) {
+    await tg('sendMessage', { chat_id: msg.chat.id, text: 'Я помогаю войти в «Свиток». Откройте приложение и нажмите «Войти через Telegram».', reply_markup: openApp });
+    return new Response('ok');
+  }
+  if (!m[1]) {
+    await tg('sendMessage', { chat_id: msg.chat.id, text: '«Свиток» — Библия, которую хочется листать. Чтобы войти, нажмите «Войти через Telegram» в приложении.', reply_markup: openApp });
+    return new Response('ok');
+  }
+
+  const nonce = m[1];
+  const name = [msg.from.first_name, msg.from.last_name].filter(Boolean).join(' ').slice(0, 40);
+  const { data } = await admin.from('tg_logins').select('tg_id, used, created_at').eq('nonce', nonce).maybeSingle();
+  if (data && !data.used && !data.tg_id && fresh(data.created_at)) {
+    await admin.from('tg_logins')
+      .update({ tg_id: msg.from.id, tg_username: msg.from.username ?? null, tg_name: name || 'Друг' })
+      .eq('nonce', nonce).is('tg_id', null);
+    await tg('sendMessage', {
+      chat_id: msg.chat.id,
+      text: `Готово, ${msg.from.first_name ?? 'друг'}! Вернитесь в «Свиток» — вход выполнится сам.`,
+      reply_markup: openApp,
+    });
+  } else {
+    await tg('sendMessage', { chat_id: msg.chat.id, text: 'Ссылка для входа устарела. Нажмите «Войти через Telegram» в приложении ещё раз.' });
+  }
+  return new Response('ok');
+}
+
+async function handleClient(req: Request) {
+  if (req.method !== 'POST') return json({ error: 'method' }, 405);
+  const { action, nonce } = await req.json().catch(() => ({}));
+  if (typeof nonce !== 'string' || !NONCE_RE.test(nonce)) return json({ error: 'bad_nonce' }, 400);
+
+  if (action === 'start') {
+    await admin.from('tg_logins').delete().lt('created_at', new Date(Date.now() - 3600_000).toISOString());
+    const { error } = await admin.from('tg_logins').insert({ nonce });
+    if (error) return json({ error: 'exists' }, 409);
+    return json({ link: `https://t.me/${BOT_NAME}?start=login_${nonce}` });
+  }
+
+  if (action === 'poll') {
+    const { data } = await admin.from('tg_logins').select('*').eq('nonce', nonce).maybeSingle();
+    if (!data || data.used || !fresh(data.created_at)) return json({ status: 'expired' });
+    if (!data.tg_id) return json({ status: 'pending' });
+
+    // заявку можно использовать ровно один раз
+    const { data: claimed } = await admin.from('tg_logins').update({ used: true })
+      .eq('nonce', nonce).eq('used', false).select('nonce');
+    if (!claimed?.length) return json({ status: 'expired' });
+
+    // технический адрес: писем на него не отправляем, он нужен только как логин в Supabase
+    const email = `tg${data.tg_id}@telegram.local`;
+    const meta = { name: data.tg_name, tg_username: data.tg_username, tg_id: data.tg_id };
+    const created = await admin.auth.admin.createUser({ email, email_confirm: true, user_metadata: meta });
+    if (created.error && !/already|registered|exists/i.test(created.error.message)) {
+      return json({ error: created.error.message }, 500);
+    }
+    const link = await admin.auth.admin.generateLink({ type: 'magiclink', email });
+    if (link.error) return json({ error: link.error.message }, 500);
+    return json({ status: 'ok', token_hash: link.data.properties.hashed_token });
+  }
+
+  return json({ error: 'action' }, 400);
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  if (req.headers.has('x-telegram-bot-api-secret-token')) return handleTelegram(req);
+  return handleClient(req);
+});

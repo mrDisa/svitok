@@ -1,13 +1,16 @@
 /* Service Worker «Свитка»: офлайн-работа без сервера.
    При каждом обновлении сайта увеличивайте VERSION, чтобы телефоны получили новую версию. */
-const VERSION = 'svitok-v5';
+const VERSION = 'svitok-v8';
 const BIBLE = 'svitok-bible-v1'; // текст Библии не меняется, кэш живёт между версиями
 
 const SHELL = [
   './',
   'index.html',
   'styles.css',
+  'config.js',
+  'vendor/supabase-2.45.4.js',
   'scenes.js',
+  'social.js',
   'app.js',
   'manifest.webmanifest',
   'data/feed.json',
@@ -24,7 +27,10 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache:'reload' — берём свежие файлы с сервера, а не из HTTP-кэша браузера (GitHub Pages держит их 10 минут)
+  e.waitUntil(caches.open(VERSION)
+    .then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -58,7 +64,7 @@ self.addEventListener('fetch', (e) => {
   // Страница: сеть с запасным вариантом из кэша (так обновления приходят сразу)
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req)
+      fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' })
         .then((res) => { const copy = res.clone(); caches.open(VERSION).then((c) => c.put('index.html', copy)); return res; })
         .catch(() => caches.match('index.html', { ignoreSearch: true }))
     );
@@ -69,7 +75,7 @@ self.addEventListener('fetch', (e) => {
   // при медленной сети — из кэша
   e.respondWith(
     caches.open(VERSION).then(async (c) => {
-      const net = fetch(req).then((res) => { if (res.ok) c.put(req, res.clone()); return res; });
+      const net = fetch(req, { cache: 'no-cache' }).then((res) => { if (res.ok) c.put(req, res.clone()); return res; });
       const slow = new Promise((_, rej) => setTimeout(() => rej(new Error('slow')), 3500));
       try {
         return await Promise.race([net, slow]);

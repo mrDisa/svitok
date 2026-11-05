@@ -1,0 +1,7 @@
+# Настройки Supabase CLI / GitHub-интеграции для проекта «Свиток».
+project_id = "mkermmysumhnwsrndlio"
+
+# Telegram присылает webhook без JWT, поэтому проверка JWT для функции входа отключена.
+# Защита — секретный заголовок X-Telegram-Bot-Api-Secret-Token (см. index.ts).
+[functions.telegram]
+verify_jwt = false
