@@ -405,6 +405,7 @@ svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .p-stat b{display:block;font-family:var(--serif);font-size:26px;line-height:1.15;font-weight:700}
 .p-stat b i{font-style:normal;font-size:15px;font-weight:400;color:var(--muted)}
 .p-stat span{font-size:12px;color:var(--muted)}
+.sync-note{text-align:center;color:var(--faint);font-size:12.5px;margin:4px 0 0}
 .p-card{margin-top:20px;padding:22px 20px 14px;border-radius:20px;background:var(--surface);border:1px solid var(--line);text-align:center}
 .p-card .auth-ico{width:60px;height:60px;border-radius:18px;margin-bottom:12px}
 .p-card .auth-ico svg{width:30px;height:30px}
@@ -525,6 +526,32 @@ a.as-btn,button.as-btn{background:var(--cream);color:var(--ink)}
   .onb-panel{left:50%;right:auto;bottom:50%;width:min(460px,92vw);transform:translate(-50%,50%);border-radius:26px;background:rgba(22,20,17,.88);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.08);padding:28px}
   .onb-shade{background:rgba(0,0,0,.35)}
 }
+
+/* поиск по Библии */
+.bsearch{position:relative;display:flex;align-items:center;gap:8px;margin:0 0 14px;padding:0 12px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.bsearch:focus-within{border-color:rgba(212,167,92,.55)}
+.bsearch>svg{flex:none;width:19px;height:19px;color:var(--muted)}
+.bsearch input{flex:1;min-width:0;height:46px;border:0;outline:none;background:none;color:var(--text);font:inherit;font-size:16px;-webkit-appearance:none;appearance:none;user-select:text;-webkit-user-select:text}
+.bsearch input::placeholder{color:var(--faint)}
+.bsearch input::-webkit-search-cancel-button{display:none}
+.bs-clear{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2)}
+.bs-clear svg{width:14px;height:14px}
+.bs-ref{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:12px;border-radius:16px;background:rgba(212,167,92,.1);border:1px solid rgba(212,167,92,.35)}
+.bs-ref>span{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:rgba(212,167,92,.18);color:var(--gold-2)}
+.bs-ref>span svg{width:20px;height:20px}
+.bs-ref div{flex:1;min-width:0;display:flex;flex-direction:column}
+.bs-ref small{color:var(--gold-2);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.bs-ref b{font-family:var(--serif);font-size:18px}
+.bs-ref>svg{color:var(--gold-2)}
+.bs-scope{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;scrollbar-width:none}
+.bs-scope button{flex:none;padding:7px 13px;border-radius:99px;background:var(--surface);border:1px solid var(--line);font-size:13.5px;font-weight:600;color:var(--muted)}
+.bs-scope button.on{background:var(--cream);color:var(--ink);border-color:transparent}
+.bs-status{color:var(--muted);font-size:14px;margin:4px 2px 12px}
+.bs-item{display:block;width:100%;text-align:left;padding:12px 14px;margin-bottom:8px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.bs-item small{display:block;color:var(--gold-2);font-family:var(--serif);font-style:italic;font-size:14px;margin-bottom:4px}
+.bs-item p{margin:0;font-family:var(--serif);font-size:16px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.bs-item mark{background:rgba(212,167,92,.32);color:inherit;border-radius:3px;padding:0 1px}
+.bs-more{display:block;width:100%;padding:13px;border-radius:14px;background:var(--surface);border:1px solid var(--line);font-weight:600;margin-bottom:12px}
 
 /* планы чтения */
 .pbar{display:block;height:4px;border-radius:2px;background:rgba(255,248,235,.14);overflow:hidden}

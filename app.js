@@ -29,6 +29,7 @@ const I = {
   text: svg('<path d="M5 6h14M5 12h14M5 18h9"/>'),
   friend: svg('<path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"/>'),
   download: svg('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>'),
+  search: svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/>'),
   heartFill: svg('<path d="M12 20.5s-7.6-4.6-9.4-9.4C1.3 7.6 3.5 4.3 7 4.3c2 0 3.5 1 5 3 1.5-2 3-3 5-3 3.5 0 5.7 3.3 4.4 6.8-1.8 4.8-9.4 9.4-9.4 9.4z"/>'),
 };
 
@@ -567,13 +568,17 @@ function renderBooks() {
   const last = S.last && BOOKS[S.last.b] ? S.last : null;
   bibleEl().innerHTML = `
     <div class="page-head"><h1>Библия</h1><p>Синодальный перевод</p></div>
+    ${Search.boxHTML()}
+    <div id="bible-home">
     ${last ? `<button class="continue" data-continue><div><small>Продолжить чтение</small><b>${esc(BOOKS[last.b].n)}, глава ${last.c}</b></div>${I.next}</button>` : ''}
     ${Plans.sectionHTML()}
     <div class="sec-title">Ветхий Завет</div>
     <div class="book-list">${BOOKS.map((b, i) => (b.nt ? '' : book(b, i))).join('')}</div>
     <div class="sec-title">Новый Завет</div>
-    <div class="book-list">${BOOKS.map((b, i) => (b.nt ? book(b, i) : '')).join('')}</div>`;
+    <div class="book-list">${BOOKS.map((b, i) => (b.nt ? book(b, i) : '')).join('')}</div>
+    </div>`;
   bibleEl().scrollTop = 0;
+  Search.afterRender();
 }
 
 function renderChapters(b) {
@@ -594,7 +599,7 @@ async function openChapter(b, c, hl) {
   const el = bibleEl();
   const title = bk.r === 'Псалтирь' ? `Псалом ${c}` : `${bk.n}, глава ${c}`;
   el.innerHTML = `
-    <div class="sub-head"><button class="icon-btn" data-nav="${Plans.inPlan(b, c) ? 'plan' : bk.c === 1 ? 'books' : 'chapters'}" aria-label="Назад">${I.back}</button><h1>${esc(title)}</h1></div>
+    <div class="sub-head"><button class="icon-btn" data-nav="${Plans.inPlan(b, c) ? 'plan' : Search.isFrom(b, c) ? 'search' : bk.c === 1 ? 'books' : 'chapters'}" aria-label="Назад">${I.back}</button><h1>${esc(title)}</h1></div>
     <div class="loading">Загрузка…</div>`;
   el.scrollTop = 0;
   S.last = { b, c }; store.set('last', S.last);
@@ -667,7 +672,7 @@ function initBible() {
   bibleEl().addEventListener('click', (e) => {
     const t = e.target;
     let m;
-    if (Plans.onClick(e)) return;
+    if (Plans.onClick(e) || Search.onClick(e)) return;
     if ((m = t.closest('[data-book]'))) renderChapters(+m.dataset.book);
     else if ((m = t.closest('[data-ch]'))) openChapter(bibleRoute.b, +m.dataset.ch);
     else if ((m = t.closest('[data-continue]'))) openChapter(S.last.b, S.last.c);
@@ -684,6 +689,7 @@ function initBible() {
       updateSelBar();
     }
   });
+  bibleEl().addEventListener('input', (e) => Search.onInput(e));
   $('#sel-bar').addEventListener('click', async (e) => {
     const b = e.target.closest('[data-sel]');
     if (!b) return;

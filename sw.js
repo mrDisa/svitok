@@ -1,6 +1,6 @@
 /* Service Worker «Свитка»: офлайн-работа без сервера.
    При каждом обновлении сайта увеличивайте VERSION, чтобы телефоны получили новую версию. */
-const VERSION = 'svitok-v12';
+const VERSION = 'svitok-v13';
 const ART = 'svitok-art-v1'; // картины не меняются, кэш живёт между версиями
 const BIBLE = 'svitok-bible-v1'; // текст Библии не меняется, кэш живёт между версиями
 
@@ -13,6 +13,7 @@ const SHELL = [
   'social.js',
   'onboarding.js',
   'plans.js',
+  'search.js',
   'app.js',
   'manifest.webmanifest',
   'data/feed.json',

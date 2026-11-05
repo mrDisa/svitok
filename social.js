@@ -126,7 +126,105 @@ const Social = (() => {
     if (!sb) return;
     await loadMe();
     await loadAll();
+    if (me) await pull().catch(() => {});
     if ($('[data-view=profile]').classList.contains('on')) render();
+  }
+
+  /* ---------------- синхронизация прогресса с аккаунтом ---------------- */
+  const SYNC_KEYS = ['saved', 'likes', 'weights', 'goal', 'day', 'streak', 'plans', 'last'];
+  let rawSet = null;          // исходный store.set (без отметки «есть изменения»)
+  let dirty = false;
+  let syncTimer = null;
+  let applying = false;
+
+  function collect() {
+    return {
+      v: 1, saved: store.get('saved', []), likes: store.get('likes', []), weights: store.get('weights', {}),
+      goal: store.get('goal', null), day: store.get('day', null), streak: store.get('streak', null),
+      plans: store.get('plans', {}), last: store.get('last', null),
+    };
+  }
+  const ymd = (s) => { const [y, m, d] = String(s || '').split('-').map(Number); return y ? new Date(y, m - 1, d).getTime() : 0; };
+  function mergeState(l, r) {
+    if (!r) return l;
+    const savedMap = new Map();
+    [...(r.saved || []), ...(l.saved || [])].forEach((s) => {
+      const p = savedMap.get(s.id);
+      if (!p || (s.ts || 0) > (p.ts || 0)) savedMap.set(s.id, s);
+    });
+    const day = !l.day ? r.day : !r.day ? l.day : l.day.d === r.day.d
+      ? { d: l.day.d, n: Math.max(l.day.n, r.day.n), done: !!(l.day.done || r.day.done) }
+      : (ymd(l.day.d) > ymd(r.day.d) ? l.day : r.day);
+    const streak = !l.streak ? r.streak : !r.streak ? l.streak
+      : ymd(l.streak.last) === ymd(r.streak.last) ? { last: l.streak.last, count: Math.max(l.streak.count, r.streak.count) }
+      : (ymd(l.streak.last) > ymd(r.streak.last) ? l.streak : r.streak);
+    const plans = { ...(r.plans || {}) };
+    Object.entries(l.plans || {}).forEach(([id, p]) => {
+      const q = plans[id];
+      plans[id] = q ? { started: Math.min(p.started || Date.now(), q.started || Date.now()), done: [...new Set([...(p.done || []), ...(q.done || [])])].sort((a, b) => a - b) } : p;
+    });
+    return {
+      v: 1,
+      saved: [...savedMap.values()].sort((a, b) => (b.ts || 0) - (a.ts || 0)),
+      likes: [...new Set([...(r.likes || []), ...(l.likes || [])])],
+      weights: { ...(r.weights || {}), ...(l.weights || {}) },
+      goal: l.goal ?? r.goal, day, streak, plans, last: l.last || r.last,
+    };
+  }
+  function apply(st) {
+    applying = true;
+    const set = rawSet || store.set;
+    SYNC_KEYS.forEach((k) => { if (st[k] !== undefined && st[k] !== null) set(k, st[k]); });
+    applying = false;
+    S.saved = st.saved || [];
+    S.likes = new Set(st.likes || []);
+    S.weights = st.weights || {};
+    S.last = st.last || null;
+    if (typeof Goal !== 'undefined' && Goal.reload) Goal.reload();
+    if ($('[data-view=saved]').classList.contains('on') && typeof renderSaved === 'function') renderSaved();
+    if ($('[data-view=bible]').classList.contains('on') && bibleRoute.view === 'books' && !$('#bsearch')?.value) renderBooks();
+  }
+  async function push(state) {
+    if (!me) return;
+    const { data, error } = await sb.from('user_state').upsert({ user_id: me.id, data: state || collect() }).select('updated_at').single();
+    if (error) return;
+    dirty = false;
+    (rawSet || store.set)('syncAt', data.updated_at);
+    (rawSet || store.set)('syncUser', me.id);
+    if ($('[data-view=profile]').classList.contains('on')) { const n = $('.sync-note'); if (n) n.textContent = '✓ Прогресс сохранён в аккаунте'; }
+  }
+  async function pull() {
+    if (!me) return;
+    const { data, error } = await sb.from('user_state').select('data, updated_at').eq('user_id', me.id).maybeSingle();
+    if (error) return;
+    const local = collect();
+    // впервые на этом устройстве (или другой аккаунт) — объединяем, чтобы ничего не потерять
+    const firstHere = store.get('syncUser', null) !== me.id || !store.get('syncAt', null);
+    if (!data) { await push(local); return; }
+    const remoteNewer = new Date(data.updated_at) > new Date(store.get('syncAt', 0));
+    let result = local;
+    if (firstHere || (dirty && remoteNewer)) result = mergeState(local, data.data);
+    else if (remoteNewer) result = data.data;
+    if (result !== local) apply(result);
+    (rawSet || store.set)('syncAt', data.updated_at);
+    (rawSet || store.set)('syncUser', me.id);
+    if (JSON.stringify(result) !== JSON.stringify(data.data)) await push(result);
+    else dirty = false;
+  }
+  function schedule() {
+    dirty = true;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => { push().catch(() => {}); }, 3000);
+  }
+  function hookStore() {
+    if (rawSet) return;
+    rawSet = store.set.bind(store);
+    store.set = (k, v) => { rawSet(k, v); if (!applying && me && SYNC_KEYS.includes(k)) schedule(); };
+    document.addEventListener('visibilitychange', () => {
+      if (!me) return;
+      if (document.hidden) { if (dirty) { clearTimeout(syncTimer); push().catch(() => {}); } }
+      else pull().catch(() => {});
+    });
   }
 
   /* ---------------- экран «Друзья» ---------------- */
@@ -151,6 +249,7 @@ const Social = (() => {
         <button class="pill-btn" data-f="edit">${ICON.edit}Изменить профиль</button>
       </div>
       ${statsHTML()}
+      <p class="sync-note">✓ Прогресс сохраняется в аккаунте</p>
       <div class="sec-title">Друзья · ${friends.length}</div>
       <div class="f-actions">
         <button data-f="add">${ICON.plus}Добавить друга</button>
@@ -192,7 +291,7 @@ const Social = (() => {
       <div class="p-card">
         <div class="auth-ico">${ICON.people}</div>
         <h2>Друзья</h2>
-        ${enabled ? `<p>Войдите, чтобы добавлять друзей и отправлять им стихи прямо в приложении. Лента и Библия работают и без входа.</p>
+        ${enabled ? `<p>Войдите, чтобы добавлять друзей, отправлять им стихи и сохранять прогресс в аккаунте — избранное, планы и серия не потеряются при смене телефона.</p>
         <button class="btn-auth tg" data-f="login-tg">${ICON.tg}Войти через Telegram</button>
         ${CFG.emailLogin ? `<button class="btn-auth" data-f="login-mail">${ICON.mail}Войти по почте</button>` : ''}`
         : '<p>Скоро здесь можно будет добавлять друзей и отправлять им стихи.</p>'}
@@ -512,6 +611,7 @@ const Social = (() => {
     }
     el().addEventListener('click', onClick);
     if (!enabled) { render(); return; }
+    hookStore();
     sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'svitok-auth' },
     });

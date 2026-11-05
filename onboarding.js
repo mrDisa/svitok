@@ -118,8 +118,10 @@ const Goal = (() => {
   }
 
   function stats() { fresh(); return { n: day.n, goal, streak: streak.count, done: day.done }; }
+  // после синхронизации данные в хранилище могли смениться — перечитываем
+  function reload() { loaded = false; renderRing(); }
 
-  return { init, count, setGoal, openSheet, label, stats, optionsHTML, OPTIONS, DWELL, get goal() { load(); return goal; }, versesWord };
+  return { init, count, setGoal, openSheet, label, stats, reload, optionsHTML, OPTIONS, DWELL, get goal() { load(); return goal; }, versesWord };
 })();
 
 /* ---------------- знакомство при первом запуске ---------------- */
