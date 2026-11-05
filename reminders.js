@@ -64,6 +64,20 @@ const Reminders = (() => {
     if (token) await api('tg-unsubscribe', {}, token).catch(() => {});
   }
 
+  /* Источник правды: Telegram — сервер (общий для аккаунта), пуш — подписка этого устройства.
+     Память устройства (store 'remind') — только кэш для мгновенного показа. true — если что-то изменилось. */
+  async function refresh() {
+    const st = state();
+    let endpoint = '';
+    if (pushSupport().ok) endpoint = (await currentSub().catch(() => null))?.endpoint || '';
+    let r;
+    try { r = await api('status', { endpoint }, await Social.accessToken()); } catch { return false; }
+    const next = { hour: r.tg?.hour ?? r.push?.hour ?? st.hour, push: !!(endpoint && r.push), tg: !!r.tg };
+    const changed = next.hour !== st.hour || next.push !== st.push || next.tg !== st.tg;
+    if (changed) save(next);
+    return changed;
+  }
+
   function label() {
     const st = state();
     const ways = [st.push && 'уведомление', st.tg && 'Telegram'].filter(Boolean);
@@ -82,8 +96,8 @@ const Reminders = (() => {
       <div class="sec-title" style="margin-top:0">Время</div>
       <div class="rm-hours">${HOURS.map((h) => `<button class="${h === st.hour ? 'on' : ''}" data-rhour="${h}">${h}:00</button>`).join('')}</div>
       <div class="group" style="margin-top:14px">
-        <div class="row"><div class="grow">Уведомление на телефон<small>${ps.ok ? 'Придёт, даже если приложение закрыто' : esc(ps.why)}</small></div>${sw(st.push && ps.ok, 'data-rpush', !ps.ok)}</div>
-        <div class="row"><div class="grow">Сообщение в Telegram<small>${tgUser ? 'Бот пришлёт стих с кнопкой «Открыть»' : 'Войдите через Telegram в «Профиле», чтобы включить'}</small></div>${sw(st.tg && tgUser, 'data-rtg', !tgUser)}</div>
+        <div class="row"><div class="grow">Уведомление на этом устройстве<small>${ps.ok ? 'Придёт, даже если приложение закрыто. На другом телефоне включается отдельно' : esc(ps.why)}</small></div>${sw(st.push && ps.ok, 'data-rpush', !ps.ok)}</div>
+        <div class="row"><div class="grow">Сообщение в Telegram<small>${tgUser ? 'Бот пришлёт стих с кнопкой «Открыть». Общее для всех ваших устройств' : 'Войдите через Telegram в «Профиле», чтобы включить'}</small></div>${sw(st.tg && tgUser, 'data-rtg', !tgUser)}</div>
       </div>
       ${st.push && ps.ok ? '<button class="pill-btn" data-rtest style="display:block;margin:6px auto 0">Прислать пробное уведомление</button>' : ''}`;
   }
@@ -91,6 +105,8 @@ const Reminders = (() => {
     closeSheet();
     openSheet(sheetHTML(), (sheet) => {
       const redraw = () => { sheet.innerHTML = '<div class="grab"></div>' + sheetHTML(); };
+      // показываем сразу из кэша, затем сверяемся с сервером и устройством
+      refresh().then((changed) => { if (changed && sheet.isConnected) redraw(); if (changed && $('[data-view=more]').classList.contains('on')) renderMore(); });
       sheet.addEventListener('click', async (e) => {
         const st = state();
         let m;
@@ -127,5 +143,5 @@ const Reminders = (() => {
     });
   }
 
-  return { open, label };
+  return { open, label, refresh };
 })();

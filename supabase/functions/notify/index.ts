@@ -145,6 +145,21 @@ Deno.serve(async (req) => {
     return json({ result: await sendPush(data) });
   }
 
+  // текущее состояние: Telegram — по аккаунту, пуш — по подписке этого устройства
+  if (action === 'status') {
+    const user = await userFrom(req);
+    let push = null, tg = null;
+    if (typeof body.endpoint === 'string' && body.endpoint) {
+      const { data } = await admin.from('push_subs').select('hour').eq('endpoint', body.endpoint).maybeSingle();
+      if (data) push = { hour: data.hour };
+    }
+    if (user) {
+      const { data } = await admin.from('tg_daily').select('hour').eq('user_id', user.id).maybeSingle();
+      if (data) tg = { hour: data.hour };
+    }
+    return json({ push, tg, telegram: !!user?.user_metadata?.tg_id });
+  }
+
   if (action === 'tg-subscribe' || action === 'tg-unsubscribe' || action === 'tg-status') {
     const user = await userFrom(req);
     if (!user) return json({ error: 'auth' }, 401);

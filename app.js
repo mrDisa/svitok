@@ -863,7 +863,7 @@ function openTab(name) {
   $('.topbar').classList.toggle('hidden', name !== 'feed');
   $('#install-pill').hidden = name !== 'feed' || STANDALONE || Tg.inTg || S.pillHidden;
   if (name === 'saved') renderSaved();
-  if (name === 'more') renderMore();
+  if (name === 'more') { renderMore(); Reminders.refresh().then((changed) => { if (changed && $('[data-view=more]').classList.contains('on')) renderMore(); }); }
   if (name === 'profile') Social.render();
 }
 
