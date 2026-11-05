@@ -1,6 +1,7 @@
 /* Service Worker «Свитка»: офлайн-работа без сервера.
    При каждом обновлении сайта увеличивайте VERSION, чтобы телефоны получили новую версию. */
-const VERSION = 'svitok-v9';
+const VERSION = 'svitok-v10';
+const ART = 'svitok-art-v1'; // картины не меняются, кэш живёт между версиями
 const BIBLE = 'svitok-bible-v1'; // текст Библии не меняется, кэш живёт между версиями
 
 const SHELL = [
@@ -9,13 +10,13 @@ const SHELL = [
   'styles.css',
   'config.js',
   'vendor/supabase-2.45.4.js',
-  'scenes.js',
   'social.js',
   'onboarding.js',
   'app.js',
   'manifest.webmanifest',
   'data/feed.json',
   'data/books.json',
+  'data/paintings.json',
   'icons/icon-180.png',
   'icons/icon-192.png',
   'icons/icon-512.png',
@@ -37,7 +38,7 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== VERSION && k !== BIBLE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== VERSION && k !== BIBLE && k !== ART).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -48,10 +49,11 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
 
-  // Книги Библии: сначала кэш, потом сеть (и сохраняем)
-  if (url.pathname.includes('/data/bible/')) {
+  // Книги Библии и картины: сначала кэш, потом сеть (и сохраняем)
+  const isArt = url.pathname.includes('/img/art/');
+  if (url.pathname.includes('/data/bible/') || isArt) {
     e.respondWith(
-      caches.open(BIBLE).then(async (c) => {
+      caches.open(isArt ? ART : BIBLE).then(async (c) => {
         const hit = await c.match(req);
         if (hit) return hit;
         const res = await fetch(req);
@@ -91,15 +93,18 @@ self.addEventListener('fetch', (e) => {
 // Скачивание всей Библии для офлайна по запросу приложения
 self.addEventListener('message', (e) => {
   if (!e.data || e.data.type !== 'precache-bible') return;
-  const total = e.data.total || 66;
   const client = e.source;
   e.waitUntil((async () => {
-    const c = await caches.open(BIBLE);
+    const bible = await caches.open(BIBLE);
+    const artCache = await caches.open(ART);
     let done = 0, failed = 0;
-    const urls = Array.from({ length: total }, (_, i) => `data/bible/${String(i + 1).padStart(2, '0')}.json`);
+    const art = Array.isArray(e.data.art) ? e.data.art.filter((u) => /^img\/art\/[\w-]+\.jpg$/.test(u)) : [];
+    const urls = [...Array.from({ length: e.data.total || 66 }, (_, i) => `data/bible/${String(i + 1).padStart(2, '0')}.json`), ...art];
+    const all = urls.length;
     const worker = async () => {
       while (urls.length) {
         const u = urls.shift();
+        const c = u.startsWith('img/art/') ? artCache : bible;
         try {
           if (!(await c.match(u))) {
             const res = await fetch(u);
@@ -108,7 +113,7 @@ self.addEventListener('message', (e) => {
           }
         } catch { failed++; }
         done++;
-        if (client && (done % 3 === 0 || done === total)) client.postMessage({ type: 'bible-progress', done, total, failed });
+        if (client && (done % 3 === 0 || done === all)) client.postMessage({ type: 'bible-progress', done, total: all, failed });
       }
     };
     await Promise.all([worker(), worker(), worker(), worker()]);

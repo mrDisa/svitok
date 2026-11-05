@@ -3,7 +3,7 @@
 /* ======================================================================
    Первый запуск (знакомство) и цель на день.
    Использует общие помощники из app.js: $, $$, esc, store, S, persist,
-   TOPICS, resetFeed, toast, openSheet, closeSheet, Scenes, I.
+   TOPICS, resetFeed, toast, openSheet, closeSheet, I.
    ====================================================================== */
 
 /* ---------------- цель на день ---------------- */
@@ -122,7 +122,7 @@ const Goal = (() => {
 
 /* ---------------- знакомство при первом запуске ---------------- */
 const Onboarding = (() => {
-  const SCENES_BY_STEP = ['dove', 'walkwater', 'candles', 'shepherd', 'bethlehem'];
+  const ART_BY_STEP = ['rembrandt-head', 'aivazovsky-water', 'millet-angelus', 'plockhorst-shepherd', 'hunt-light'];
   let step = 0;
   let chosenGoal = 10;
   const chosenTopics = new Set();
@@ -165,7 +165,7 @@ const Onboarding = (() => {
   function render() {
     const root = el();
     root.innerHTML = `
-      <div class="onb-bg">${Scenes.svg('onb' + step, { scene: SCENES_BY_STEP[step] })}</div>
+      <div class="onb-bg"><img class="art ok" src="img/art/${ART_BY_STEP[step]}.jpg" alt=""></div>
       <div class="onb-shade"></div>
       <div class="onb-panel">
         <div class="onb-dots">${STEPS.map((_, i) => `<i class="${i === step ? 'on' : i < step ? 'past' : ''}"></i>`).join('')}</div>

@@ -77,6 +77,11 @@ const persist = {
 
 /* ---------- данные ---------- */
 let FEED = [];
+let PAINTINGS = [];
+let ART_BY_TOPIC = {};
+const ART_BY_ID = new Map();
+const recentArt = [];
+const cardArt = new Map(); // key карточки -> картина
 let FEED_BY_ID = new Map();
 let BY_TOPIC = {};
 let BOOKS = [];
@@ -165,6 +170,19 @@ function pickTopic() {
   return it;
 }
 
+/* Картина к стиху: чаще по теме, без повторов среди последних показанных */
+function pickArt(topic) {
+  if (!PAINTINGS.length) return null;
+  const recent = new Set(recentArt);
+  const byTopic = (ART_BY_TOPIC[topic] || []).filter((p) => !recent.has(p.id));
+  const pool = byTopic.length && Math.random() < 0.75 ? byTopic : PAINTINGS.filter((p) => !recent.has(p.id));
+  const p = (pool.length ? pool : PAINTINGS)[Math.random() * (pool.length || PAINTINGS.length) | 0];
+  recentArt.push(p.id);
+  if (recentArt.length > Math.min(14, PAINTINGS.length - 5)) recentArt.shift();
+  return p;
+}
+const artCredit = (p) => `${p.artist} · «${p.title.replace(/^«|»$/g, '')}»`;
+
 function cardHTML(it, tag) {
   const [g1, g2] = gradFor(it.id);
   const n = it.x.length;
@@ -173,8 +191,11 @@ function cardHTML(it, tag) {
   cardItems.set(key, it);
   const liked = S.likes.has(it.id);
   const saved = S.saved.some((s) => s.id === it.id);
+  const art = pickArt(it.t);
+  if (art) cardArt.set(key, art);
   return `<article class="card size-${size}" data-key="${key}" style="--g1:${g1};--g2:${g2}">
-    <div class="scene-wrap"></div><div class="scrim"></div>
+    <div class="art-wrap"></div><div class="scrim"></div>
+    ${art ? `<div class="card-credit">${esc(artCredit(art))}</div>` : ''}
     <div class="card-body">
       <div class="card-tag">${esc(tag || TOPIC_NAME[it.t])}</div>
       <p class="verse">${esc(it.x)}</p>
@@ -189,14 +210,16 @@ function cardHTML(it, tag) {
   </article>`;
 }
 
-/* Живой фон рисуем только у соседних карточек, чтобы лента оставалась лёгкой */
+/* Картину грузим только у соседних карточек, чтобы лента оставалась лёгкой */
 function syncScenes(cards, idx) {
   cards.forEach((c, i) => {
     const wrap = c.firstElementChild;
-    if (!wrap || !wrap.classList.contains('scene-wrap')) return;
+    if (!wrap || !wrap.classList.contains('art-wrap')) return;
     const near = i >= idx - 1 && i <= idx + 2;
-    if (near && !wrap.firstChild) { const it = cardItems.get(c.dataset.key); wrap.innerHTML = Scenes.svg(it.id, { topic: it.t }); }
-    else if (!near && wrap.firstChild && Math.abs(i - idx) > 3) wrap.innerHTML = '';
+    const art = cardArt.get(c.dataset.key);
+    if (near && !wrap.firstChild && art) {
+      wrap.innerHTML = `<img class="art" src="${art.src}" alt="${esc(art.title)}" decoding="async" onload="this.classList.add('ok')">`;
+    } else if (!near && wrap.firstChild && Math.abs(i - idx) > 3) wrap.innerHTML = '';
   });
 }
 
@@ -212,6 +235,7 @@ function resetFeed() {
   const f = feedEl();
   f.innerHTML = '';
   cardItems.clear();
+  cardArt.clear();
   activeCard = null;
   topicQueue = [];
   if (currentTopic === 'foryou') {
@@ -257,7 +281,7 @@ function onCardActive(card) {
     const f = feedEl();
     const drop = cards.slice(0, 40);
     const h = drop.reduce((a, c) => a + c.offsetHeight, 0);
-    drop.forEach((c) => { io.unobserve(c); cardItems.delete(c.dataset.key); c.remove(); });
+    drop.forEach((c) => { io.unobserve(c); cardItems.delete(c.dataset.key); cardArt.delete(c.dataset.key); c.remove(); });
     f.scrollTop -= h;
   }
 }
@@ -330,7 +354,7 @@ function initFeed() {
       const act = btn.dataset.act;
       if (act === 'like') toggleLike(card, it);
       else if (act === 'save') toggleSave(it);
-      else if (act === 'share') openShare(it);
+      else if (act === 'share') openShare({ ...it, art: cardArt.get(card.dataset.key) });
       else if (act === 'read') { openTab('bible'); openChapter(it.b, it.c, it.v); }
       return;
     }
@@ -394,16 +418,21 @@ async function renderShareImage(it) {
   g = ctx.createRadialGradient(W * 0.9, H, 0, W * 0.9, H, W);
   g.addColorStop(0, 'rgba(0,0,0,0.35)'); g.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  try {
-    // тот же пейзаж, что и на карточке; растягиваем «по обложке»
-    const img = await Scenes.image(it.id, it.t);
-    const k = Math.max(W / Scenes.W, H / Scenes.H);
-    const dw = Scenes.W * k, dh = Scenes.H * k;
-    ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
-  } catch { /* остаётся градиент */ }
+  const art = it.art || pickArt(it.t);
+  if (art) {
+    try {
+      // та же картина, что и на карточке; растягиваем «по обложке»
+      const img = new Image();
+      img.src = art.src;
+      await img.decode();
+      const k = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+      const dw = img.naturalWidth * k, dh = img.naturalHeight * k;
+      ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    } catch { /* остаётся градиент */ }
+  }
   // затемнение под текстом для читаемости
   g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, 'rgba(0,0,0,0.12)'); g.addColorStop(0.5, 'rgba(0,0,0,0.42)'); g.addColorStop(1, 'rgba(0,0,0,0.3)');
+  g.addColorStop(0, 'rgba(0,0,0,0.25)'); g.addColorStop(0.5, 'rgba(0,0,0,0.55)'); g.addColorStop(1, 'rgba(0,0,0,0.55)');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
   const maxW = W - 200;
@@ -434,6 +463,11 @@ async function renderShareImage(it) {
   ctx.font = 'italic 400 46px "PT Serif", Georgia, serif';
   ctx.fillText('— ' + it.r, W / 2, y);
 
+  if (art) {
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = 'italic 400 26px "PT Serif", Georgia, serif';
+    ctx.fillText(artCredit(art), W / 2, H - 230);
+  }
   ctx.fillStyle = 'rgba(255,255,255,0.7)';
   ctx.font = '700 38px "PT Serif", Georgia, serif';
   ctx.fillText('Свиток', W / 2, H - 170);
@@ -713,7 +747,7 @@ function renderMore() {
     <div class="group">
       <div class="row"><div class="grow">Размер текста<small>Для ленты и чтения</small></div>
         <div class="size-ctl"><button data-size="-1" aria-label="Меньше">A−</button><span class="val">${pct}%</span><button data-size="1" aria-label="Больше">A+</button></div></div>
-      <button class="row" data-offline><div class="grow">Библия без интернета<small>Все 66 книг на телефоне, около 6 МБ</small></div><span class="val">${off}</span></button>
+      <button class="row" data-offline><div class="grow">Библия без интернета<small>Все 66 книг и картины на телефоне, около 14 МБ</small></div><span class="val">${off}</span></button>
     </div>
     <div class="group">
       <button class="row" data-share-app><div class="grow">Поделиться приложением<small>Отправьте ссылку друзьям и близким</small></div>${I.share}</button>
@@ -755,7 +789,7 @@ function startOfflineDownload(manual) {
     return;
   }
   offlineState = 'loading'; offlineProgress = 0;
-  navigator.serviceWorker.controller.postMessage({ type: 'precache-bible', total: BOOKS.length });
+  navigator.serviceWorker.controller.postMessage({ type: 'precache-bible', total: BOOKS.length, art: PAINTINGS.map((p) => p.src) });
   if ($('[data-view=more]').classList.contains('on')) renderMore();
 }
 function initSW() {
@@ -814,12 +848,14 @@ async function startApp() {
   appStarted = true;
   applyScale();
   try {
-    [FEED, BOOKS] = await Promise.all([loadJSON('data/feed.json'), loadJSON('data/books.json')]);
+    [FEED, BOOKS, PAINTINGS] = await Promise.all([loadJSON('data/feed.json'), loadJSON('data/books.json'), loadJSON('data/paintings.json').catch(() => [])]);
   } catch {
     $('#feed').innerHTML = '<div class="empty" style="padding-top:40vh">Не удалось загрузить данные.<br>Проверьте интернет и откройте снова.</div>';
     return;
   }
   FEED_BY_ID = new Map(FEED.map((v) => [v.id, v]));
+  ART_BY_TOPIC = {};
+  PAINTINGS.forEach((p) => { ART_BY_ID.set(p.id, p); p.t.forEach((t) => (ART_BY_TOPIC[t] ||= []).push(p)); });
   BY_TOPIC = {};
   FEED.forEach((v) => (BY_TOPIC[v.t] ||= []).push(v));
 
@@ -860,7 +896,9 @@ function startLanding() {
 
   // анимация телефона
   const cards = $$('.mini-card');
-  cards.forEach((c, i) => c.insertAdjacentHTML('afterbegin', Scenes.svg('mini' + i, { scene: ['mountains', 'aurora', 'sea', 'rays'][i] })));
+  ['rembrandt-head', 'aivazovsky-water', 'levitan-bells', 'plockhorst-shepherd'].forEach((id, k) => {
+    cards[k]?.insertAdjacentHTML('afterbegin', `<img class="art ok" src="img/art/${id}.jpg" alt="" loading="lazy">`);
+  });
   let i = 0;
   cards[0].classList.add('cur');
   setInterval(() => {
@@ -884,11 +922,6 @@ function startLanding() {
     }
     stars.innerHTML = s;
   }
-  // живые пейзажи в плитке и финальном блоке
-  $$('#landing [data-scene]').forEach((el) => {
-    const host = $('.tile-scene-bg, .final-bg', el);
-    if (host) host.innerHTML = Scenes.svg('land-' + el.dataset.scene, { scene: el.dataset.scene });
-  });
   // плавное появление при прокрутке
   const rv = $$('#landing .rv');
   if ('IntersectionObserver' in window) {
