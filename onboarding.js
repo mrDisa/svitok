@@ -179,6 +179,7 @@ const Onboarding = (() => {
 
   function finish(skipped) {
     store.set('onboarded', true);
+    store.set('dwDate', DailyWord.key()); // слово дня сегодня уже не показываем поверх ленты
     if (!skipped) {
       Goal.setGoal(chosenGoal);
       if (chosenTopics.size) {
@@ -227,4 +228,73 @@ const Onboarding = (() => {
   }
 
   return { init, start };
+})();
+
+/* ---------------- слово дня: заставка при первом открытии за день ---------------- */
+const DailyWord = (() => {
+  const key = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+  const el = () => $('#dw');
+
+  function render() {
+    const v = verseOfDay();
+    const art = dailyArt();
+    const n = v.x.length;
+    const size = n < 75 ? 'xl' : n < 135 ? 'l' : n < 215 ? 'm' : 's';
+    const date = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+    const saved = isSaved(v.id);
+    el().innerHTML = `
+      <div class="dw-bg">${art ? `<img class="art ok" src="${art.src}" alt="">` : ''}</div>
+      <div class="dw-shade"></div>
+      <div class="dw-body">
+        <div class="dw-top"><span class="dw-kicker">Слово дня</span><span class="dw-date">${esc(date.charAt(0).toUpperCase() + date.slice(1))}</span></div>
+        <div class="dw-center size-${size}">
+          <p class="dw-verse">${esc(v.x)}</p>
+          <div class="dw-ref">${esc(v.r)}</div>
+        </div>
+        <div class="dw-bottom">
+          ${art ? `<div class="dw-credit">${esc(artCredit(art))}</div>` : ''}
+          <div class="dw-actions">
+            <button data-dw="save" class="${saved ? 'on' : ''}">${I.bookmark}<span>${saved ? 'Сохранено' : 'Сохранить'}</span></button>
+            <button data-dw="share">${I.share}<span>Поделиться</span></button>
+            <button data-dw="read">${I.book}<span>Глава</span></button>
+          </div>
+          <button class="onb-btn" data-dw="close">Начать день</button>
+        </div>
+      </div>`;
+  }
+
+  function close() {
+    const root = el();
+    root.classList.add('leave');
+    setTimeout(() => { root.hidden = true; root.classList.remove('leave'); root.innerHTML = ''; }, 350);
+  }
+
+  function onClick(e) {
+    const b = e.target.closest('[data-dw]');
+    if (!b) return;
+    const v = verseOfDay();
+    const act = b.dataset.dw;
+    if (act === 'close') close();
+    else if (act === 'save') {
+      const on = toggleSave(v);
+      b.classList.toggle('on', on);
+      $('span', b).textContent = on ? 'Сохранено' : 'Сохранить';
+    } else if (act === 'share') openShare({ ...v, art: dailyArt() });
+    else if (act === 'read') { close(); openTab('bible'); openChapter(v.b, v.c, v.v); }
+  }
+
+  function show() {
+    el().hidden = false;
+    render();
+  }
+
+  function maybeShow() {
+    el().addEventListener('click', onClick);
+    if (!store.get('onboarded', false)) return;          // в первый день знакомство важнее
+    if (store.get('dwDate', '') === key()) return;        // уже показывали сегодня
+    store.set('dwDate', key());
+    show();
+  }
+
+  return { maybeShow, show, key };
 })();

@@ -133,6 +133,8 @@ function dayIndex() {
   const d = new Date();
   return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5);
 }
+/* картина дня — одна и та же в «Слове дня» и в первой карточке ленты */
+function dailyArt() { return artForId('day-' + dayIndex(), verseOfDay().t); }
 function verseOfDay() {
   return FEED[(dayIndex() * 7919) % FEED.length];
 }
@@ -189,7 +191,7 @@ function artForId(id, topic) {
 }
 const artCredit = (p) => `${p.artist} · «${p.title.replace(/^«|»$/g, '')}»`;
 
-function cardHTML(it, tag) {
+function cardHTML(it, tag, forcedArt) {
   const [g1, g2] = gradFor(it.id);
   const n = it.x.length;
   const size = n < 75 ? 'xl' : n < 135 ? 'l' : n < 215 ? 'm' : 's';
@@ -197,7 +199,7 @@ function cardHTML(it, tag) {
   cardItems.set(key, it);
   const liked = S.likes.has(it.id);
   const saved = S.saved.some((s) => s.id === it.id);
-  const art = pickArt(it.t);
+  const art = forcedArt || pickArt(it.t);
   if (art) cardArt.set(key, art);
   return `<article class="card size-${size}" data-key="${key}" style="--g1:${g1};--g2:${g2}">
     <div class="art-wrap"></div><div class="scrim"></div>
@@ -246,7 +248,7 @@ function resetFeed() {
   topicQueue = [];
   if (currentTopic === 'foryou') {
     const d = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-    f.insertAdjacentHTML('beforeend', cardHTML(verseOfDay(), 'Стих дня · ' + d));
+    f.insertAdjacentHTML('beforeend', cardHTML(verseOfDay(), 'Стих дня · ' + d, dailyArt()));
   }
   appendCards(currentTopic === 'foryou' ? 7 : 8);
   f.scrollTop = 0;
@@ -566,6 +568,7 @@ function renderBooks() {
   bibleEl().innerHTML = `
     <div class="page-head"><h1>Библия</h1><p>Синодальный перевод</p></div>
     ${last ? `<button class="continue" data-continue><div><small>Продолжить чтение</small><b>${esc(BOOKS[last.b].n)}, глава ${last.c}</b></div>${I.next}</button>` : ''}
+    ${Plans.sectionHTML()}
     <div class="sec-title">Ветхий Завет</div>
     <div class="book-list">${BOOKS.map((b, i) => (b.nt ? '' : book(b, i))).join('')}</div>
     <div class="sec-title">Новый Завет</div>
@@ -591,7 +594,7 @@ async function openChapter(b, c, hl) {
   const el = bibleEl();
   const title = bk.r === 'Псалтирь' ? `Псалом ${c}` : `${bk.n}, глава ${c}`;
   el.innerHTML = `
-    <div class="sub-head"><button class="icon-btn" data-nav="${bk.c === 1 ? 'books' : 'chapters'}" aria-label="Назад">${I.back}</button><h1>${esc(title)}</h1></div>
+    <div class="sub-head"><button class="icon-btn" data-nav="${Plans.inPlan(b, c) ? 'plan' : bk.c === 1 ? 'books' : 'chapters'}" aria-label="Назад">${I.back}</button><h1>${esc(title)}</h1></div>
     <div class="loading">Загрузка…</div>`;
   el.scrollTop = 0;
   S.last = { b, c }; store.set('last', S.last);
@@ -613,7 +616,8 @@ async function openChapter(b, c, hl) {
     <div class="ch-nav">
       <button data-go="${prev ? prev.join(',') : ''}" ${prev ? '' : 'disabled'}>← ${prev ? esc(chLabel(prev)) : ''}</button>
       <button data-go="${next ? next.join(',') : ''}" ${next ? '' : 'disabled'}>${next ? esc(chLabel(next)) : ''} →</button>
-    </div>`;
+    </div>
+    ${Plans.readerBar(b, c)}`;
   if (hl) {
     const target = $(`.v[data-v="${h1}"]`, el);
     if (target) requestAnimationFrame(() => {
@@ -663,6 +667,7 @@ function initBible() {
   bibleEl().addEventListener('click', (e) => {
     const t = e.target;
     let m;
+    if (Plans.onClick(e)) return;
     if ((m = t.closest('[data-book]'))) renderChapters(+m.dataset.book);
     else if ((m = t.closest('[data-ch]'))) openChapter(bibleRoute.b, +m.dataset.ch);
     else if ((m = t.closest('[data-continue]'))) openChapter(S.last.b, S.last.c);
@@ -873,6 +878,7 @@ async function startApp() {
   Social.init();
   Goal.init();
   Onboarding.init();
+  DailyWord.maybeShow();
 
   $('#tabbar').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) openTab(b.dataset.tab); });
   $('#sheet-backdrop').addEventListener('click', closeSheet);
