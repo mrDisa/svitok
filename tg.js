@@ -70,5 +70,13 @@ const Tg = (() => {
     try { wa.addToHomeScreen(); return true; } catch { return false; }
   }
 
-  return { inTg, ready, shareText, homeScreenStatus, addToHomeScreen, initData: () => wa?.initData || '', get wa() { return wa; } };
+  /* стих из ссылки: t.me/<бот>/app?startapp=v_<книга>_<глава>_<стих> или кнопка бота с ?v=<книга>_<глава>_<стих> */
+  function verseLink() {
+    const start = new URLSearchParams(location.hash.slice(1)).get('tgWebAppStartParam') || '';
+    const q = new URLSearchParams(location.search).get('v') || '';
+    const m = (start.match(/^v_(\d+_\d+_\d+)$/)?.[1] || q).match(/^(\d+)_(\d+)_(\d+)$/);
+    return m ? { b: +m[1], c: +m[2], v: +m[3] } : null;
+  }
+
+  return { inTg, ready, verseLink, shareText, homeScreenStatus, addToHomeScreen, initData: () => wa?.initData || '', get wa() { return wa; } };
 })();

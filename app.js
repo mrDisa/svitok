@@ -902,7 +902,12 @@ async function startApp() {
   Social.init();
   Goal.init();
   Onboarding.init();
-  DailyWord.maybeShow();
+  // открыли по ссылке на стих (из Telegram) — сразу показываем главу вместо «Слова дня»
+  const link = Tg.verseLink();
+  if (link && BOOKS[link.b] && link.c >= 1 && link.c <= BOOKS[link.b].c) {
+    openTab('bible');
+    openChapter(link.b, link.c, [link.v, link.v]);
+  } else DailyWord.maybeShow();
 
   $('#tabbar').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) openTab(b.dataset.tab); });
   $('#sheet-backdrop').addEventListener('click', closeSheet);

@@ -31,21 +31,32 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
 /* ---------- стих дня (та же формула, что в приложении) ---------- */
-type Verse = { x: string; r: string; id: string };
+type Verse = { x: string; r: string; id: string; t: string };
+type Painting = { id: string; src: string; title: string; artist: string; t: string[] };
 let feed: Verse[] | null = null;
+let paintings: Painting[] | null = null;
 async function getFeed() {
   if (!feed) feed = await (await fetch(new URL('data/feed.json', APP_URL))).json();
   return feed!;
 }
+// картина дня — как artForId('day-<день>', тема) в приложении
+async function artForDay(day: number, topic: string) {
+  if (!paintings) paintings = await (await fetch(new URL('data/paintings.json', APP_URL))).json();
+  const byTopic = paintings!.filter((p) => p.t.includes(topic));
+  const pool = byTopic.length ? byTopic : paintings!;
+  let h = 0;
+  for (const ch of 'day-' + day) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return pool[h % pool.length];
+}
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 function localParts(tz: number) {
   const d = new Date(Date.now() + tz * 60_000);
   return { y: d.getUTCFullYear(), m: d.getUTCMonth(), d: d.getUTCDate(), h: d.getUTCHours() };
 }
+const dayFor = (tz: number) => { const p = localParts(tz); return Math.floor(Date.UTC(p.y, p.m, p.d) / 864e5); };
 async function verseFor(tz: number) {
   const f = await getFeed();
-  const p = localParts(tz);
-  const day = Math.floor(Date.UTC(p.y, p.m, p.d) / 864e5);
-  return f[(day * 7919) % f.length];
+  return f[(dayFor(tz) * 7919) % f.length];
 }
 const dateKey = (tz: number) => { const p = localParts(tz); return `${p.y}-${String(p.m + 1).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`; };
 const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s);
@@ -65,15 +76,14 @@ async function sendPush(row: { endpoint: string; sub: webpush.PushSubscription; 
 }
 async function sendTelegram(row: { user_id: string; tg_id: number; tz_offset: number }) {
   const v = await verseFor(row.tz_offset);
-  const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: row.tg_id,
-      text: `☀️ Слово дня\n\n«${v.x}»\n— ${v.r}`,
-      reply_markup: { inline_keyboard: [[{ text: 'Открыть «Свиток»', web_app: { url: APP_URL } }]] },
-    }),
+  const art = await artForDay(dayFor(row.tz_offset), v.t).catch(() => null);
+  const reply_markup = { inline_keyboard: [[{ text: 'Открыть «Свиток»', web_app: { url: APP_URL } }], [{ text: '📖 Ещё стих', callback_data: 'topics' }]] };
+  const caption = `<b>☀️ Слово дня</b>\n\n«${esc(v.x)}»\n<i>— ${esc(v.r)}</i>` + (art ? `\n\n<i>🖼 ${esc(art.artist)} · «${esc(art.title.replace(/^«|»$/g, ''))}»</i>` : '');
+  const call = (method: string, body: Record<string, unknown>) => fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: row.tg_id, parse_mode: 'HTML', reply_markup, ...body }),
   });
+  let r = art ? await call('sendPhoto', { photo: new URL(art.src, APP_URL).toString(), caption }) : null;
+  if (!r || (!r.ok && r.status !== 403)) r = await call('sendMessage', { text: caption }); // картина не загрузилась — шлём текстом
   if (r.status === 403) { await admin.from('tg_daily').delete().eq('user_id', row.user_id); return 'blocked'; }
   return r.ok ? 'ok' : 'error';
 }

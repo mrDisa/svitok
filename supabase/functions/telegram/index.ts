@@ -11,6 +11,7 @@
 // Деплой без проверки JWT: Telegram не умеет его присылать.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { handleUpdate } from './bot.ts';
 
 const BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
 const HOOK_SECRET = Deno.env.get('TELEGRAM_WEBHOOK_SECRET') ?? '';
@@ -48,15 +49,11 @@ async function handleTelegram(req: Request) {
   }
   const update = await req.json().catch(() => ({}));
   const msg = update.message;
-  if (!msg?.text || !msg.from || msg.from.is_bot) return new Response('ok');
-
-  const m = String(msg.text).match(/^\/start(?:\s+login_([A-Za-z0-9_-]{32,64}))?/);
+  const m = msg?.text && msg.from && !msg.from.is_bot ? String(msg.text).match(/^\/start\s+login_([A-Za-z0-9_-]{32,64})/) : null;
   if (!m) {
-    await tg('sendMessage', { chat_id: msg.chat.id, text: 'Я помогаю войти в «Свиток». Откройте приложение и нажмите «Войти через Telegram».', reply_markup: openApp });
-    return new Response('ok');
-  }
-  if (!m[1]) {
-    await tg('sendMessage', { chat_id: msg.chat.id, text: '«Свиток» — Библия, которую хочется листать. Чтобы войти, нажмите «Войти через Telegram» в приложении.', reply_markup: openApp });
+    // всё остальное — приветствие, команды, кнопки, поиск стихов, inline-режим
+    try { await handleUpdate(update, { tg, admin, bot: BOT_NAME, app: APP_URL }); }
+    catch (e) { console.error('bot', e); }
     return new Response('ok');
   }
 
