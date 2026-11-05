@@ -616,6 +616,19 @@ const Social = (() => {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'svitok-auth' },
     });
     await refresh().catch(() => {});
+    // в мини-аппе Telegram входим сами по подписанным данным Telegram
+    if (!me && Tg.inTg) {
+      const wa = await Tg.ready();
+      if (wa && wa.initData) {
+        try {
+          const r = await callTg({ action: 'webapp', initData: wa.initData });
+          if (r?.token_hash) {
+            const { error } = await sb.auth.verifyOtp({ token_hash: r.token_hash, type: 'magiclink' });
+            if (!error) { await refresh().catch(() => {}); if (me) toast(`Вы вошли через Telegram, ${me.display_name}`); }
+          }
+        } catch { /* остаёмся гостем */ }
+      }
+    }
     render();
     if (pendingAdd) {
       if (me) { const u = pendingAdd; pendingAdd = null; openTab('profile'); addByUsername(u); }
@@ -625,5 +638,8 @@ const Social = (() => {
     setInterval(() => { if (!document.hidden && me) loadAll(); }, 90_000);
   }
 
-  return { init, render, sendVerse, get enabled() { return enabled; } };
+  async function accessToken() { if (!sb) return null; const { data } = await sb.auth.getSession(); return data.session?.access_token || null; }
+  const isTelegram = () => !!user?.user_metadata?.tg_id;
+
+  return { init, render, sendVerse, accessToken, isTelegram, get enabled() { return enabled; } };
 })();

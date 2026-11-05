@@ -14,7 +14,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
 const HOOK_SECRET = Deno.env.get('TELEGRAM_WEBHOOK_SECRET') ?? '';
-const BOT_NAME = Deno.env.get('TELEGRAM_BOT_USERNAME') ?? 'svitok_login_bot';
+const BOT_NAME = Deno.env.get('TELEGRAM_BOT_USERNAME') ?? 'svitok_bible_bot';
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://mrdisa.github.io/svitok/';
 const TTL_MS = 10 * 60 * 1000;
 const NONCE_RE = /^[A-Za-z0-9_-]{32,64}$/;
@@ -38,7 +38,8 @@ async function tg(method: string, body: Record<string, unknown>) {
     body: JSON.stringify(body),
   });
 }
-const openApp = { inline_keyboard: [[{ text: 'Открыть «Свиток»', url: APP_URL }]] };
+// кнопка открывает «Свиток» как мини-апп прямо в Telegram
+const openApp = { inline_keyboard: [[{ text: 'Открыть «Свиток»', web_app: { url: APP_URL } }]] };
 const fresh = (createdAt: string) => Date.now() - new Date(createdAt).getTime() < TTL_MS;
 
 async function handleTelegram(req: Request) {
@@ -77,9 +78,48 @@ async function handleTelegram(req: Request) {
   return new Response('ok');
 }
 
+/* ---------- общий выпуск входа: пользователь Supabase + одноразовый token_hash ---------- */
+async function issueLogin(tg: { id: number; username?: string | null; name: string }) {
+  const email = `tg${tg.id}@telegram.local`;
+  const meta = { name: tg.name, tg_username: tg.username ?? null, tg_id: tg.id };
+  const created = await admin.auth.admin.createUser({ email, email_confirm: true, user_metadata: meta });
+  if (created.error && !/already|registered|exists/i.test(created.error.message)) throw new Error(created.error.message);
+  const link = await admin.auth.admin.generateLink({ type: 'magiclink', email });
+  if (link.error) throw new Error(link.error.message);
+  return link.data.properties.hashed_token;
+}
+
+/* ---------- мини-апп: проверка initData (подпись Telegram) ---------- */
+async function hmac(key: Uint8Array, data: string) {
+  const k = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return new Uint8Array(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(data)));
+}
+const hex = (b: Uint8Array) => [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+async function verifyInitData(initData: string) {
+  const params = new URLSearchParams(initData);
+  const hash = params.get('hash');
+  if (!hash || !BOT_TOKEN) return null;
+  params.delete('hash');
+  const check = [...params.entries()].map(([k, v]) => `${k}=${v}`).sort().join('\n');
+  const secret = await hmac(new TextEncoder().encode('WebAppData'), BOT_TOKEN);
+  if (hex(await hmac(secret, check)) !== hash) return null;
+  if (Date.now() / 1000 - Number(params.get('auth_date') || 0) > 86400) return null;
+  try { return JSON.parse(params.get('user') || 'null'); } catch { return null; }
+}
+
 async function handleClient(req: Request) {
   if (req.method !== 'POST') return json({ error: 'method' }, 405);
-  const { action, nonce } = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({}));
+  const { action, nonce } = body;
+
+  if (action === 'webapp') {
+    const u = typeof body.initData === 'string' ? await verifyInitData(body.initData) : null;
+    if (!u?.id) return json({ error: 'bad_init_data' }, 401);
+    const name = [u.first_name, u.last_name].filter(Boolean).join(' ').slice(0, 40) || 'Друг';
+    try { return json({ status: 'ok', token_hash: await issueLogin({ id: u.id, username: u.username, name }) }); }
+    catch (e) { return json({ error: (e as Error).message }, 500); }
+  }
+
   if (typeof nonce !== 'string' || !NONCE_RE.test(nonce)) return json({ error: 'bad_nonce' }, 400);
 
   if (action === 'start') {
@@ -99,16 +139,9 @@ async function handleClient(req: Request) {
       .eq('nonce', nonce).eq('used', false).select('nonce');
     if (!claimed?.length) return json({ status: 'expired' });
 
-    // технический адрес: писем на него не отправляем, он нужен только как логин в Supabase
-    const email = `tg${data.tg_id}@telegram.local`;
-    const meta = { name: data.tg_name, tg_username: data.tg_username, tg_id: data.tg_id };
-    const created = await admin.auth.admin.createUser({ email, email_confirm: true, user_metadata: meta });
-    if (created.error && !/already|registered|exists/i.test(created.error.message)) {
-      return json({ error: created.error.message }, 500);
-    }
-    const link = await admin.auth.admin.generateLink({ type: 'magiclink', email });
-    if (link.error) return json({ error: link.error.message }, 500);
-    return json({ status: 'ok', token_hash: link.data.properties.hashed_token });
+    // технический адрес tg<id>@telegram.local: писем на него не отправляем, он нужен только как логин в Supabase
+    try { return json({ status: 'ok', token_hash: await issueLogin({ id: data.tg_id, username: data.tg_username, name: data.tg_name }) }); }
+    catch (e) { return json({ error: (e as Error).message }, 500); }
   }
 
   return json({ error: 'action' }, 400);

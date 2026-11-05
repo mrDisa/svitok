@@ -31,7 +31,9 @@
     var standalone = window.navigator.standalone === true ||
       (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
     var forced = location.hash === '#app' || /[?&]pwa=1/.test(location.search);
-    if (standalone || forced) document.documentElement.classList.add('mode-app');
+    var tg = /tgWebApp/.test(location.hash); // открыто как мини-апп в Telegram
+    if (standalone || forced || tg) document.documentElement.classList.add('mode-app');
+    if (tg) document.documentElement.classList.add('in-tg');
     if (standalone) document.documentElement.classList.add('is-standalone');
   })();
 </script>
@@ -312,6 +314,8 @@
 <script src="onboarding.js" defer></script>
 <script src="plans.js" defer></script>
 <script src="search.js" defer></script>
+<script src="tg.js" defer></script>
+<script src="reminders.js" defer></script>
 <script src="app.js" defer></script>
 </body>
 </html>

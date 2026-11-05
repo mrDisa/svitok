@@ -5,3 +5,8 @@ project_id = "mkermmysumhnwsrndlio"
 # Защита — секретный заголовок X-Telegram-Bot-Api-Secret-Token (см. index.ts).
 [functions.telegram]
 verify_jwt = false
+
+# Рассылка «Слова дня»: расписание зовёт функцию с секретным заголовком x-cron-secret,
+# клиенты — для подписки; JWT не обязателен (вход проверяется внутри, где нужен).
+[functions.notify]
+verify_jwt = false

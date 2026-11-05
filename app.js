@@ -524,6 +524,7 @@ function openShare(it) {
             toast('Картинка сохранена');
           }
         } else if (kind === 'text') {
+          if (Tg.inTg && Tg.shareText(shareText(it), appUrl())) return;
           if (navigator.share) await navigator.share({ text: shareText(it) + '\n\n' + appUrl() });
           else { await copyText(shareText(it)); toast('Текст скопирован'); }
         } else if (kind === 'copy') {
@@ -768,8 +769,11 @@ function renderMore() {
       <button class="row" data-offline><div class="grow">Библия без интернета<small>Все 66 книг и картины на телефоне, около 14 МБ</small></div><span class="val">${off}</span></button>
     </div>
     <div class="group">
+      <button class="row" data-remind><div class="grow">Напоминание «Слово дня»<small>${esc(Reminders.label())}</small></div>${I.next}</button>
+    </div>
+    <div class="group">
       <button class="row" data-share-app><div class="grow">Поделиться приложением<small>Отправьте ссылку друзьям и близким</small></div>${I.share}</button>
-      ${STANDALONE ? '' : `<a class="row" href="./#install" style="color:inherit;text-decoration:none"><div class="grow">Установить на экран «Домой»<small>Запуск как обычное приложение</small></div>${I.next}</a>`}
+      ${STANDALONE || Tg.inTg ? '' : `<a class="row" href="./#install" style="color:inherit;text-decoration:none"><div class="grow">Установить на экран «Домой»<small>Запуск как обычное приложение</small></div>${I.next}</a>`}
       <button class="row" data-goal-open><div class="grow">Цель на день<small>${esc(Goal.label())}</small></div>${I.next}</button>
       <button class="row" data-onb><div class="grow">Как пользоваться<small>Показать знакомство ещё раз</small></div>${I.next}</button>
       <button class="row" data-reset><div class="grow">Сбросить рекомендации<small>Лента снова станет общей</small></div></button>
@@ -787,7 +791,10 @@ function initMore() {
       if (offlineState !== 'done') startOfflineDownload(true);
     } else if (e.target.closest('[data-share-app]')) {
       const data = { title: 'Свиток', text: 'Библия, которую хочется листать. Бесплатно, без рекламы.', url: appUrl() };
+      if (Tg.inTg && Tg.shareText(data.text, data.url)) return;
       try { if (navigator.share) await navigator.share(data); else { await copyText(data.url); toast('Ссылка скопирована'); } } catch { /* отмена */ }
+    } else if (e.target.closest('[data-remind]')) {
+      Reminders.open();
     } else if (e.target.closest('[data-goal-open]')) {
       Goal.openSheet();
     } else if (e.target.closest('[data-onb]')) {
@@ -854,7 +861,7 @@ function openTab(name) {
   $$('.view').forEach((v) => v.classList.toggle('on', v.dataset.view === name));
   $$('#tabbar button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
   $('.topbar').classList.toggle('hidden', name !== 'feed');
-  $('#install-pill').hidden = name !== 'feed' || STANDALONE || S.pillHidden;
+  $('#install-pill').hidden = name !== 'feed' || STANDALONE || Tg.inTg || S.pillHidden;
   if (name === 'saved') renderSaved();
   if (name === 'more') renderMore();
   if (name === 'profile') Social.render();
@@ -865,6 +872,7 @@ async function startApp() {
   if (appStarted) return;
   appStarted = true;
   applyScale();
+  Tg.ready();
   try {
     [FEED, BOOKS, PAINTINGS] = await Promise.all([loadJSON('data/feed.json'), loadJSON('data/books.json'), loadJSON('data/paintings.json').catch(() => [])]);
   } catch {
@@ -888,7 +896,7 @@ async function startApp() {
 
   $('#tabbar').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) openTab(b.dataset.tab); });
   $('#sheet-backdrop').addEventListener('click', closeSheet);
-  $('#install-pill').hidden = STANDALONE || S.pillHidden;
+  $('#install-pill').hidden = STANDALONE || Tg.inTg || S.pillHidden;
   $('[data-hide-pill]').addEventListener('click', () => { S.pillHidden = true; store.set('pillHidden', true); $('#install-pill').hidden = true; });
 
   // Вся Библия тихо скачивается для офлайна в установленном приложении
@@ -1008,11 +1016,12 @@ function drawQR() {
 
 /* ---------- маршрутизация ---------- */
 function route() {
-  const app = STANDALONE || location.hash === '#app' || /[?&]pwa=1/.test(location.search);
+  const app = STANDALONE || Tg.inTg || location.hash === '#app' || /[?&]pwa=1/.test(location.search);
   document.documentElement.classList.toggle('mode-app', app);
   if (app) startApp(); else startLanding();
 }
 window.addEventListener('hashchange', () => {
+  if (Tg.inTg) return;
   if (location.hash === '#app' || STANDALONE) { route(); window.scrollTo(0, 0); }
   else if (document.documentElement.classList.contains('mode-app')) {
     route();

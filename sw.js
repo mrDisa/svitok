@@ -1,6 +1,6 @@
 /* Service Worker «Свитка»: офлайн-работа без сервера.
    При каждом обновлении сайта увеличивайте VERSION, чтобы телефоны получили новую версию. */
-const VERSION = 'svitok-v13';
+const VERSION = 'svitok-v14';
 const ART = 'svitok-art-v1'; // картины не меняются, кэш живёт между версиями
 const BIBLE = 'svitok-bible-v1'; // текст Библии не меняется, кэш живёт между версиями
 
@@ -14,6 +14,8 @@ const SHELL = [
   'onboarding.js',
   'plans.js',
   'search.js',
+  'tg.js',
+  'reminders.js',
   'app.js',
   'manifest.webmanifest',
   'data/feed.json',
@@ -119,5 +121,26 @@ self.addEventListener('message', (e) => {
       }
     };
     await Promise.all([worker(), worker(), worker(), worker()]);
+  })());
+});
+
+// Пуш «Слово дня»
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data && e.data.text() }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Свиток', {
+    body: d.body || '',
+    icon: 'icons/icon-192.png',
+    badge: 'icons/icon-192.png',
+    tag: d.tag || 'daily',
+    data: { url: d.url || './?pwa=1' },
+  }));
+});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const w of wins) { if ('focus' in w) { await w.focus(); return; } }
+    await self.clients.openWindow((e.notification.data && e.notification.data.url) || './?pwa=1');
   })());
 });
