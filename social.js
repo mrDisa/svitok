@@ -29,6 +29,7 @@ const Social = (() => {
     edit: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
     person: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20.5c1-4 4.3-6.5 8-6.5s7 2.5 8 6.5"/></svg>',
     link: '<svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
+    menu: '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
   };
 
   const el = () => $('#profile');
@@ -100,16 +101,15 @@ const Social = (() => {
   async function loadAll() {
     if (!me) return;
     const P = 'id, username, display_name, avatar_color, avatar_url';
-    const [fr, sh] = await Promise.all([
+    const [fr] = await Promise.all([
       sb.from('friendships').select(`*, rq:profiles!friendships_requester_fkey(${P}), ad:profiles!friendships_addressee_fkey(${P})`),
-      sb.from('shares').select(`*, s:profiles!shares_sender_fkey(${P})`).eq('recipient', me.id).order('created_at', { ascending: false }).limit(60),
     ]);
     const rows = fr.data || [];
     friends = rows.filter((f) => f.status === 'accepted').map((f) => ({ f, p: f.requester === me.id ? f.ad : f.rq }))
       .sort((a, b) => a.p.display_name.localeCompare(b.p.display_name));
     incoming = rows.filter((f) => f.status === 'pending' && f.addressee === me.id).map((f) => ({ f, p: f.rq }));
     outgoing = rows.filter((f) => f.status === 'pending' && f.requester === me.id).map((f) => ({ f, p: f.ad }));
-    inbox = sh.data || [];
+    inbox = [];
     updateBadge();
     if (typeof Comments !== 'undefined') Comments.load();
   }
@@ -135,7 +135,7 @@ const Social = (() => {
   }
 
   /* ---------------- синхронизация прогресса с аккаунтом ---------------- */
-  const SYNC_KEYS = ['saved', 'likes', 'weights', 'goal', 'day', 'streak', 'plans', 'last'];
+  const SYNC_KEYS = ['saved', 'likes', 'weights', 'goal', 'day', 'streak', 'plans', 'last', 'privacy'];
   let rawSet = null;          // исходный store.set (без отметки «есть изменения»)
   let dirty = false;
   let syncTimer = null;
@@ -145,7 +145,7 @@ const Social = (() => {
     return {
       v: 1, saved: store.get('saved', []), likes: store.get('likes', []), weights: store.get('weights', {}),
       goal: store.get('goal', null), day: store.get('day', null), streak: store.get('streak', null),
-      plans: store.get('plans', {}), last: store.get('last', null),
+      plans: store.get('plans', {}), last: store.get('last', null), privacy: store.get('privacy', { saved: true, likes: true, comments: true }),
     };
   }
   const ymd = (s) => { const [y, m, d] = String(s || '').split('-').map(Number); return y ? new Date(y, m - 1, d).getTime() : 0; };
@@ -172,7 +172,7 @@ const Social = (() => {
       saved: [...savedMap.values()].sort((a, b) => (b.ts || 0) - (a.ts || 0)),
       likes: [...new Set([...(r.likes || []), ...(l.likes || [])])],
       weights: { ...(r.weights || {}), ...(l.weights || {}) },
-      goal: l.goal ?? r.goal, day, streak, plans, last: l.last || r.last,
+      goal: l.goal ?? r.goal, day, streak, plans, last: l.last || r.last, privacy: { saved: true, likes: true, comments: true, ...(r.privacy || {}), ...(l.privacy || {}) },
     };
   }
   function apply(st) {
@@ -246,7 +246,9 @@ const Social = (() => {
     if (!enabled || !me) { renderSignedOut(); return; }
     const unread = inbox.filter((s) => !s.read_at).length;
     el().innerHTML = `
-      <div class="p-head">
+      <div class="page-head profile-page-title"><h1>Профиль</h1></div>
+      <div class="p-head profile-hero">
+        <button class="profile-menu" data-f="settings" aria-label="Настройки">${ICON.menu}</button>
         ${avatar(me, 92)}
         <h1>${esc(me.display_name)}</h1>
         <p>@${esc(me.username)}</p>
@@ -254,6 +256,11 @@ const Social = (() => {
       </div>
       ${statsHTML()}
       <p class="sync-note">✓ Прогресс сохраняется в аккаунте</p>
+      <div class="profile-library">
+        <button data-f="saved">${I.bookmark}<span>Избранное</span><b>${S.saved.length}</b></button>
+        <button data-f="liked">${I.heart}<span>Лайки</span><b>${S.likes.size}</b></button>
+        <button data-f="comments">${I.talk}<span>Комментарии</span></button>
+      </div>
       ${typeof Comments !== 'undefined' ? `<div class="cm-notices">${Comments.profileHTML()}</div>` : ''}
       <div class="sec-title">Друзья · ${friends.length}</div>
       <div class="f-actions">
@@ -268,8 +275,7 @@ const Social = (() => {
         : '<div class="hint-card">Пока никого. Нажмите «Добавить друга» или отправьте ссылку-приглашение.</div>'}
       ${outgoing.length ? `<div class="sec-title">Ждут ответа</div><div class="group">${outgoing.map(({ f, p }) => `<div class="row person">${avatar(p, 36)}<div class="grow">${esc(p.display_name)}<small>@${esc(p.username)}</small></div>
           <button class="pill-btn" data-f="remove" data-id="${f.id}">Отменить</button></div>`).join('')}</div>` : ''}
-      <div class="sec-title">Вам отправили${unread ? ` · ${unread} новых` : ''}</div>
-      ${inbox.length ? inbox.map(shareHTML).join('') : '<div class="hint-card">Когда друг отправит вам стих, он появится здесь.</div>'}`;
+      `;
     // открыли экран — отмечаем стихи прочитанными
     if (unread) {
       sb.from('shares').update({ read_at: new Date().toISOString() }).eq('recipient', me.id).is('read_at', null)
@@ -284,6 +290,12 @@ const Social = (() => {
       ${s.note ? `<div class="note">${esc(s.note)}</div>` : ''}
       <p>${esc(s.body)}</p><small>${esc(s.ref)}</small>
     </div>`;
+  }
+  async function viewProfile(id) {
+    const { data:p } = await sb.from('profiles').select('id,username,display_name,avatar_color,avatar_url').eq('id', id).maybeSingle();
+    if (!p) return toast('Профиль недоступен');
+    const friend = friends.find((x) => x.p.id === id);
+    openSheet(`<div class="p-head public-profile">${avatar(p,84)}<h1>${esc(p.display_name)}</h1><p>@${esc(p.username)}</p></div><div class="profile-library"><button>${I.bookmark}<span>Избранное</span></button><button>${I.heart}<span>Лайки</span></button><button>${I.talk}<span>Комментарии</span></button></div><p class="sheet-text">Показываются только разделы, которые человек открыл в настройках конфиденциальности.</p>${friend ? `<div class="sheet-actions"><button class="primary" data-profile-chat="${p.id}">${ICON.send}Написать</button></div>` : ''}`, (sheet) => { const b=$('[data-profile-chat]',sheet); if (b) b.onclick=()=>{ closeSheet(); openTab('chats'); Chats.createDirect(id); }; });
   }
   function renderSignedOut() {
     el().innerHTML = `
@@ -545,13 +557,13 @@ const Social = (() => {
     if (!friends.length) await loadAll();
     closeSheet();
     openSheet(`
-      <h2>Отправить другу</h2>
+      <h2>Отправить в чат</h2>
       <div class="send-verse"><p>${esc(it.x)}</p><small>${esc(it.r)}</small></div>
       ${friends.length ? `
         <div class="friend-pick">${friends.map(({ p }) => `<button data-uid="${p.id}">${avatar(p, 52)}<span>${esc(p.display_name.split(' ')[0])}</span></button>`).join('')}</div>
         <form class="auth-form" id="send-form">
-          <label>Пара слов от себя (необязательно)<input name="note" maxlength="300" placeholder="Подумал о тебе…"></label>
-          <button class="primary as-btn" type="submit" disabled>${ICON.send}Отправить</button>
+          <label>Комментарий к местописанию<input name="note" maxlength="300" placeholder="Подумал о тебе…"></label>
+          <button class="primary as-btn" type="submit" disabled>${ICON.send}Отправить в чат</button>
         </form>`
         : `<div class="hint-card">У вас пока нет друзей в «Свитке».</div>
         <div class="sheet-actions"><button class="primary" data-f="add">${ICON.plus}Добавить друга</button></div>`}`, (sheet) => {
@@ -568,16 +580,12 @@ const Social = (() => {
       $('#send-form', sheet)?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const note = new FormData(e.target).get('note').trim() || null;
-        const rows = [...chosen].map((rid) => ({
-          sender: me.id, recipient: rid, verse_id: it.id, ref: it.r, body: it.x,
-          book: it.b, chapter: it.c, v1: it.v?.[0], v2: it.v?.[1], note,
-        }));
         const btn = $('#send-form button', sheet);
         btn.disabled = true;
-        const { error } = await sb.from('shares').insert(rows);
-        if (error) { btn.disabled = false; toast('Не удалось отправить'); return; }
+        const error = await Chats.sendVerse(it, [...chosen], note);
+        if (error) { btn.disabled = false; toast('Не удалось отправить в чат'); return; }
         closeSheet();
-        toast(rows.length > 1 ? `Отправлено ${rows.length} друзьям` : 'Отправлено');
+        toast(chosen.size > 1 ? `Отправлено в ${chosen.size} чатов` : 'Отправлено в чат');
       });
     });
   }
@@ -589,7 +597,10 @@ const Social = (() => {
     const f = b.dataset.f;
     if (f === 'login-tg') loginTelegram();
     else if (f === 'goal') { if (typeof Goal !== 'undefined') Goal.openSheet(); }
-    else if (f === 'saved') openTab('saved');
+    else if (f === 'saved') { savedTab = 'saved'; openTab('saved'); }
+    else if (f === 'liked') { savedTab = 'liked'; openTab('saved'); }
+    else if (f === 'comments') { toast('Ваши комментарии появятся здесь после первой публикации'); }
+    else if (f === 'settings') openTab('more');
     else if (f === 'login-mail') loginMail();
     else if (f === 'edit') editProfile();
     else if (f === 'add') addFriendSheet();
@@ -644,10 +655,18 @@ const Social = (() => {
   }
 
   async function accessToken() { if (!sb) return null; const { data } = await sb.auth.getSession(); return data.session?.access_token || null; }
+  async function signOut() {
+    if (!sb) return;
+    const { error } = await sb.auth.signOut();
+    if (error) { toast('Не удалось выйти'); return; }
+    me = null; user = null; friends = []; incoming = []; outgoing = []; inbox = [];
+    updateBadge(); openTab('profile'); render(); toast('Вы вышли из аккаунта');
+  }
   const isTelegram = () => !!user?.user_metadata?.tg_id;
 
   return {
-    init, render, sendVerse, accessToken, isTelegram, avatar, ago, updateBadge,
+    init, render, sendVerse, viewProfile, accessToken, signOut, isTelegram, avatar, ago, updateBadge,
+    get friends() { return friends.map((x) => x.p); },
     get enabled() { return enabled; }, get sb() { return sb; }, get me() { return me; },
   };
 })();

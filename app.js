@@ -494,12 +494,14 @@ function appUrl() { return location.origin + location.pathname.replace(/index\.h
 
 function openShare(it) {
   let file = null, url = null;
+  const friends = Social.friends || [];
   openSheet(`
     <h2>Поделиться</h2>
     <div class="share-preview"><div class="ph" id="share-img"></div></div>
+    ${Social.enabled && friends.length ? `<div class="share-friends">${friends.map((p) => `<button data-s="chat-pick" data-user="${p.id}" data-name="${esc(p.display_name)}">${Social.avatar(p,46)}<span>${esc(p.display_name.split(' ')[0])}</span></button>`).join('')}</div><div id="share-chat"></div>` : ''}
     <div class="sheet-actions">
       <button class="primary" data-s="image" disabled>${I.image}Поделиться картинкой</button>
-      ${Social.enabled ? `<button class="wide" data-s="friend">${I.friend}Отправить другу в «Свитке»</button>` : ''}
+      ${Social.enabled && !friends.length ? `<button class="wide" data-s="friend">${I.friend}Выбрать друга</button>` : ''}
       <button data-s="text">${I.text}Текстом</button>
       <button data-s="copy">${I.copy}Скопировать</button>
     </div>`, (sheet) => {
@@ -516,6 +518,12 @@ function openShare(it) {
       if (!b) return;
       const kind = b.dataset.s;
       if (kind === 'friend') { Social.sendVerse(it); return; }
+      if (kind === 'chat-pick') {
+        $$('.share-friends button', sheet).forEach((x) => x.classList.toggle('on', x === b));
+        $('#share-chat', sheet).innerHTML = `<p class="share-to">Отправить: <b>${esc(b.dataset.name)}</b></p><label class="share-note">Комментарий к местописанию<input id="share-note" maxlength="300" placeholder="Напишите пару слов…" autofocus></label><button class="chat-send" data-s="chat-send" data-user="${b.dataset.user}">${I.friend}Отправить</button>`;
+        $('#share-note', sheet)?.focus(); return;
+      }
+      if (kind === 'chat-send') { const error = await Chats.sendVerse(it, [b.dataset.user], $('#share-note', sheet)?.value.trim() || ''); if (error) toast('Не удалось отправить'); else { closeSheet(); toast('Отправлено в чат'); } return; }
       try {
         if (kind === 'image' && file) {
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -727,7 +735,7 @@ function renderSaved() {
     </div>`;
   };
   $('#saved').innerHTML = `
-    <div class="page-head"><h1>Избранное</h1></div>
+    <div class="page-head subpage-head"><button class="icon-btn" data-profile-back aria-label="Назад в профиль">${I.back}</button><div><h1>${savedTab === 'saved' ? 'Избранное' : 'Лайки'}</h1><p>Ваш профиль</p></div></div>
     <div class="seg">
       <button class="${savedTab === 'saved' ? 'on' : ''}" data-seg="saved">Сохранённое · ${S.saved.length}</button>
       <button class="${savedTab === 'liked' ? 'on' : ''}" data-seg="liked">Понравилось · ${S.likes.size}</button>
@@ -742,6 +750,7 @@ function findAny(id) {
 function initSaved() {
   $('#saved').addEventListener('click', (e) => {
     let m;
+    if (e.target.closest('[data-profile-back]')) { openTab('profile'); return; }
     if ((m = e.target.closest('[data-seg]'))) { savedTab = m.dataset.seg; renderSaved(); return; }
     if ((m = e.target.closest('[data-rm]'))) {
       const id = m.dataset.rm;
@@ -766,12 +775,19 @@ function renderMore() {
   const pct = Math.round(S.scale * 100);
   const off = offlineState === 'done' ? 'Скачана ✓'
     : offlineState === 'loading' ? `${offlineProgress}%` : 'Скачать';
+  const privacy = { saved: true, likes: true, comments: true, ...store.get('privacy', {}) };
   $('#more').innerHTML = `
-    <div class="page-head"><h1>Ещё</h1></div>
+    <div class="page-head subpage-head"><button class="icon-btn" data-profile-back aria-label="Назад в профиль">${I.back}</button><div><h1>Настройки</h1><p>Профиль и приложение</p></div></div>
     <div class="group">
       <div class="row"><div class="grow">Размер текста<small>Для ленты и чтения</small></div>
         <div class="size-ctl"><button data-size="-1" aria-label="Меньше">A−</button><span class="val">${pct}%</span><button data-size="1" aria-label="Больше">A+</button></div></div>
       <button class="row" data-offline><div class="grow">Библия без интернета<small>Все 66 книг и картины на телефоне, около 14 МБ</small></div><span class="val">${off}</span></button>
+    </div>
+    <div class="sec-title">Конфиденциальность профиля</div>
+    <div class="group">
+      <div class="row"><div class="grow">Избранное<small>Показывать друзьям сохранённые места Писания</small></div><button class="switch${privacy.saved ? ' on' : ''}" data-privacy="saved" role="switch"><i></i></button></div>
+      <div class="row"><div class="grow">Лайки<small>Показывать друзьям понравившиеся стихи</small></div><button class="switch${privacy.likes ? ' on' : ''}" data-privacy="likes" role="switch"><i></i></button></div>
+      <div class="row"><div class="grow">Комментарии<small>Показывать друзьям ваши комментарии</small></div><button class="switch${privacy.comments ? ' on' : ''}" data-privacy="comments" role="switch"><i></i></button></div>
     </div>
     <div class="sec-title">Уведомления</div>
     <div class="group">
@@ -787,6 +803,7 @@ function renderMore() {
       <button class="row" data-onb><div class="grow">Как пользоваться<small>Показать знакомство ещё раз</small></div>${I.next}</button>
       <button class="row" data-reset><div class="grow">Сбросить рекомендации<small>Лента снова станет общей</small></div></button>
     </div>
+    ${Social.me ? `<div class="group settings-logout"><button class="row" data-signout><div class="grow">Выйти из аккаунта<small>Данные останутся в аккаунте и будут доступны при следующем входе</small></div>${I.next}</button></div>` : ''}
     <p class="about"><b>Свиток</b> — бесплатное приложение без рекламы и подписок. Текст: Синодальный перевод, канонические книги. Лайки, избранное и место чтения остаются на этом устройстве, а обсуждения под стихами видны всем — их читают другие люди.</p>`;
   // в Telegram предлагаем иконку на экране «Домой», если клиент это умеет и её ещё нет
   if (Tg.inTg) Tg.ready().then(() => Tg.homeScreenStatus()).then((st) => {
@@ -800,6 +817,7 @@ function applyScale() { document.documentElement.style.setProperty('--scale', S.
 function initMore() {
   $('#more').addEventListener('click', async (e) => {
     let m;
+    if (e.target.closest('[data-profile-back]')) { openTab('profile'); return; }
     if ((m = e.target.closest('[data-size]'))) {
       S.scale = Math.round(Math.max(0.8, Math.min(1.4, S.scale + 0.1 * +m.dataset.size)) * 10) / 10;
       store.set('scale', S.scale); applyScale(); renderMore();
@@ -813,6 +831,9 @@ function initMore() {
       if (!Tg.addToHomeScreen(() => { toast('Иконка добавлена на экран «Домой»'); renderMore(); })) toast('Эта версия Telegram пока не умеет добавлять иконку');
     } else if (e.target.closest('[data-cm-notify]')) {
       Comments.toggleNotify(); renderMore();
+    } else if ((m = e.target.closest('[data-privacy]'))) {
+      const privacy = { saved: true, likes: true, comments: true, ...store.get('privacy', {}) };
+      privacy[m.dataset.privacy] = !privacy[m.dataset.privacy]; store.set('privacy', privacy); renderMore();
     } else if (e.target.closest('[data-remind]')) {
       Reminders.open();
     } else if (e.target.closest('[data-goal-open]')) {
@@ -823,6 +844,8 @@ function initMore() {
       S.weights = {}; S.seen = []; persist.weights(); persist.seen();
       toast('Рекомендации сброшены');
       if (currentTopic === 'foryou') resetFeed();
+    } else if (e.target.closest('[data-signout]')) {
+      if (confirm('Выйти из аккаунта на этом устройстве?')) Social.signOut();
     }
   });
 }
@@ -883,6 +906,7 @@ function openTab(name) {
   $('.topbar').classList.toggle('hidden', name !== 'feed');
   $('#install-pill').hidden = name !== 'feed' || STANDALONE || Tg.inTg || S.pillHidden;
   if (name === 'saved') renderSaved();
+  if (name === 'chats') Chats.render();
   if (name === 'more') { renderMore(); Reminders.refresh().then((changed) => { if (changed && $('[data-view=more]').classList.contains('on')) renderMore(); }); }
   if (name === 'profile') { Social.render(); Comments.load(); }
 }
@@ -910,6 +934,7 @@ async function startApp() {
   initSaved();
   initMore();
   Social.init();
+  Chats.init();
   Comments.init();
   Goal.init();
   Onboarding.init();
