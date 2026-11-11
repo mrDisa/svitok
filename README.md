@@ -6,15 +6,12 @@
 **Сайт:** https://mrdisa.github.io/svitok/
 
 <p align="center">
-  <img src="docs/screens/landing-mobile.jpg" width="200" alt="Главная страница">
-  <img src="docs/screens/feed-mobile.jpg" width="200" alt="Лента стихов">
-  <img src="docs/screens/feed-mobile-2.jpg" width="200" alt="Живые фоны">
-  <img src="docs/screens/share-mobile.jpg" width="200" alt="Поделиться картинкой">
+  <img src="docs/screens/feed-paintings-mobile.jpg" width="200" alt="Стих дня на фоне картины Рембрандта">
+  <img src="docs/screens/feed-hope-paintings-mobile.jpg" width="200" alt="Стих о надежде на фоне картины Николая Ге">
+  <img src="docs/screens/feed-faith-paintings-mobile.jpg" width="200" alt="Стих о вере на фоне картины Ивана Айвазовского">
 </p>
-<p align="center">
-  <img src="docs/screens/reader-mobile.jpg" width="200" alt="Чтение главы">
-  <img src="docs/screens/friends-mobile.jpg" width="200" alt="Друзья">
-</p>
+
+<p align="center"><i>Стихи в ленте — каждый на фоне картины</i></p>
 
 ## Возможности
 
@@ -42,10 +39,10 @@
 Кнопка «Попробовать в браузере» открывает полноценную версию для компьютера: боковое меню, лента карточкой по центру, листание колёсиком или стрелками ↓/↑, клавиша **L** — «нравится».
 
 <p align="center">
-  <img src="docs/screens/app-desktop.jpg" width="820" alt="Компьютерная версия приложения">
+  <img src="docs/screens/app-paintings-desktop.jpg" width="820" alt="Компьютерная версия приложения: стих на фоне картины">
 </p>
 <p align="center">
-  <img src="docs/screens/landing-desktop.jpg" width="820" alt="Главная страница на компьютере">
+  <img src="docs/screens/landing-paintings-desktop.jpg" width="820" alt="Главная страница «Свитка» на компьютере">
 </p>
 
 ## Как начать
