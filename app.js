@@ -80,7 +80,7 @@ let FEED = [];
 let PAINTINGS = [];
 let ART_BY_TOPIC = {};
 const ART_BY_ID = new Map();
-const recentArt = [];
+let artQueue = [];
 const cardArt = new Map(); // key карточки -> картина
 let FEED_BY_ID = new Map();
 let BY_TOPIC = {};
@@ -172,16 +172,13 @@ function pickTopic() {
   return it;
 }
 
-/* Картина к стиху: чаще по теме, без повторов среди последних показанных */
+/* Картина к стиху: общая перемешанная колода без повторов до полного круга.
+   Внутри колоды сначала берём полотно, связанное с темой карточки. */
 function pickArt(topic) {
   if (!PAINTINGS.length) return null;
-  const recent = new Set(recentArt);
-  const byTopic = (ART_BY_TOPIC[topic] || []).filter((p) => !recent.has(p.id));
-  const pool = byTopic.length && Math.random() < 0.75 ? byTopic : PAINTINGS.filter((p) => !recent.has(p.id));
-  const p = (pool.length ? pool : PAINTINGS)[Math.random() * (pool.length || PAINTINGS.length) | 0];
-  recentArt.push(p.id);
-  if (recentArt.length > Math.min(14, PAINTINGS.length - 5)) recentArt.shift();
-  return p;
+  if (!artQueue.length) artQueue = shuffle([...PAINTINGS]);
+  const matching = artQueue.findIndex((p) => p.t.includes(topic));
+  return artQueue.splice(matching < 0 ? 0 : matching, 1)[0];
 }
 /* Постоянная картина для стиха (избранное, входящие) */
 function artForId(id, topic) {
