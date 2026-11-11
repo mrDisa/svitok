@@ -74,6 +74,11 @@ async function sendPush(row: { endpoint: string; sub: webpush.PushSubscription; 
     return 'error';
   }
 }
+async function sendChatPush(row: { endpoint: string; sub: webpush.PushSubscription }, sender: string, body: string) {
+  const payload = JSON.stringify({ title: sender, body: clip(body, 150), url: `${APP_URL}?pwa=1#chats`, tag: `chat-${row.endpoint}` });
+  try { await webpush.sendNotification(row.sub, payload, { TTL: 24 * 3600, urgency: 'high' }); return 'ok'; }
+  catch (e) { const code = (e as { statusCode?: number }).statusCode; if (code === 404 || code === 410) await admin.from('push_subs').delete().eq('endpoint', row.endpoint); return 'error'; }
+}
 async function sendTelegram(row: { user_id: string; tg_id: number; tz_offset: number }) {
   const v = await verseFor(row.tz_offset);
   const art = await artForDay(dayFor(row.tz_offset), v.t).catch(() => null);
@@ -153,6 +158,24 @@ Deno.serve(async (req) => {
     const { data } = await admin.from('push_subs').select('endpoint, sub, tz_offset').eq('endpoint', body.endpoint).maybeSingle();
     if (!data) return json({ error: 'not_found' }, 404);
     return json({ result: await sendPush(data) });
+  }
+
+  // После отправки сообщения клиент вызывает этот маршрут с JWT. Получателями могут
+  // стать лишь другие участники того же чата, у которых уже включены push-уведомления.
+  if (action === 'chat') {
+    const user = await userFrom(req);
+    if (!user || typeof body.chatId !== 'string' || typeof body.body !== 'string') return json({ error: 'bad_chat' }, 400);
+    const { data: mine } = await admin.from('chat_members').select('chat_id').eq('chat_id', body.chatId).eq('user_id', user.id).maybeSingle();
+    if (!mine) return json({ error: 'forbidden' }, 403);
+    const [{ data: recipients }, { data: profile }] = await Promise.all([
+      admin.from('chat_members').select('user_id').eq('chat_id', body.chatId).neq('user_id', user.id),
+      admin.from('profiles').select('display_name').eq('id', user.id).maybeSingle(),
+    ]);
+    const ids = (recipients || []).map((x) => x.user_id);
+    if (!ids.length) return json({ ok: true, sent: 0 });
+    const { data: subs } = await admin.from('push_subs').select('endpoint,sub').in('user_id', ids);
+    const results = await Promise.all((subs || []).map((s) => sendChatPush(s, profile?.display_name || 'Новое сообщение', body.body)));
+    return json({ ok: true, sent: results.filter((x) => x === 'ok').length });
   }
 
   // текущее состояние: Telegram — по аккаунту, пуш — по подписке этого устройства
