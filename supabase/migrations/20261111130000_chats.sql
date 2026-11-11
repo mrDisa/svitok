@@ -47,11 +47,16 @@ alter table public.chats enable row level security;
 alter table public.chat_members enable row level security;
 alter table public.chat_messages enable row level security;
 
+drop policy if exists chats_read on public.chats;
 create policy chats_read on public.chats for select to authenticated using (public.is_chat_member(id, auth.uid()));
+drop policy if exists chats_create on public.chats;
 create policy chats_create on public.chats for insert to authenticated with check (created_by = auth.uid());
+drop policy if exists chats_update on public.chats;
 create policy chats_update on public.chats for update to authenticated using (public.is_chat_admin(id, auth.uid())) with check (public.is_chat_admin(id, auth.uid()));
+drop policy if exists members_read on public.chat_members;
 create policy members_read on public.chat_members for select to authenticated using (public.is_chat_member(chat_id, auth.uid()));
 -- Создатель добавляет себя первым; в личный чат допускается только подтверждённый друг.
+drop policy if exists members_add on public.chat_members;
 create policy members_add on public.chat_members for insert to authenticated with check (
   (user_id = auth.uid() and exists(select 1 from public.chats c where c.id = chat_id and c.created_by = auth.uid()))
   or (public.is_chat_admin(chat_id, auth.uid()) and (
@@ -59,10 +64,15 @@ create policy members_add on public.chat_members for insert to authenticated wit
     or public.are_friends(auth.uid(), user_id)
   ))
 );
+drop policy if exists members_update_read on public.chat_members;
 create policy members_update_read on public.chat_members for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists members_remove on public.chat_members;
 create policy members_remove on public.chat_members for delete to authenticated using (user_id = auth.uid() or public.is_chat_admin(chat_id, auth.uid()));
+drop policy if exists messages_read on public.chat_messages;
 create policy messages_read on public.chat_messages for select to authenticated using (public.is_chat_member(chat_id, auth.uid()));
+drop policy if exists messages_send on public.chat_messages;
 create policy messages_send on public.chat_messages for insert to authenticated with check (sender = auth.uid() and public.is_chat_member(chat_id, auth.uid()));
+drop policy if exists messages_delete_for_all on public.chat_messages;
 create policy messages_delete_for_all on public.chat_messages for update to authenticated using (sender = auth.uid() or public.is_chat_admin(chat_id, auth.uid())) with check (deleted_at is not null);
 revoke update on public.chat_messages from authenticated;
 grant update (body, deleted_at) on public.chat_messages to authenticated;
