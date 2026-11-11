@@ -39,6 +39,37 @@ async function tg(method: string, body: Record<string, unknown>) {
     body: JSON.stringify(body),
   });
 }
+async function telegramAvatar(tgId: number, profileId: string, photoUrl?: string | null) {
+  // Telegram не передаёт фото в Login/WebApp-данных, поэтому берём последнюю
+  // фотографию профиля через Bot API при каждом подтверждённом входе.
+  try {
+    let image: Blob | null = null;
+    // photo_url приходит в подписанных initData Mini App, поэтому его можно доверенно использовать.
+    if (photoUrl && /^https:\/\//.test(photoUrl)) {
+      const res = await fetch(photoUrl);
+      if (res.ok) image = await res.blob();
+    }
+    if (!image) {
+      const photos = await (await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUserProfilePhotos`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: tgId, limit: 1 }),
+      })).json();
+      const fileId = photos?.result?.photos?.[0]?.at(-1)?.file_id;
+      if (!fileId) return;
+      const file = await (await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ file_id: fileId }),
+      })).json();
+      const path = file?.result?.file_path;
+      if (!path) return;
+      image = await (await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${path}`)).blob();
+    }
+    if (!image) return;
+    const storagePath = `${profileId}/telegram-${Date.now()}.jpg`;
+    const upload = await admin.storage.from('avatars').upload(storagePath, image, { contentType: image.type || 'image/jpeg', upsert: false, cacheControl: '31536000' });
+    if (upload.error) return;
+    const url = admin.storage.from('avatars').getPublicUrl(storagePath).data.publicUrl;
+    await admin.from('profiles').update({ avatar_url: url }).eq('id', profileId);
+  } catch (e) { console.error('telegram avatar', e); }
+}
 // кнопка открывает «Свиток» как мини-апп прямо в Telegram
 const openApp = { inline_keyboard: [[{ text: 'Открыть «Свиток»', web_app: { url: APP_URL } }]] };
 const fresh = (createdAt: string) => Date.now() - new Date(createdAt).getTime() < TTL_MS;
@@ -76,13 +107,15 @@ async function handleTelegram(req: Request) {
 }
 
 /* ---------- общий выпуск входа: пользователь Supabase + одноразовый token_hash ---------- */
-async function issueLogin(tg: { id: number; username?: string | null; name: string }) {
+async function issueLogin(tg: { id: number; username?: string | null; name: string; photoUrl?: string | null }) {
   const email = `tg${tg.id}@telegram.local`;
   const meta = { name: tg.name, tg_username: tg.username ?? null, tg_id: tg.id };
   const created = await admin.auth.admin.createUser({ email, email_confirm: true, user_metadata: meta });
   if (created.error && !/already|registered|exists/i.test(created.error.message)) throw new Error(created.error.message);
   const link = await admin.auth.admin.generateLink({ type: 'magiclink', email });
   if (link.error) throw new Error(link.error.message);
+  const profileId = (link.data.user as { id?: string } | undefined)?.id;
+  if (profileId) await telegramAvatar(tg.id, profileId, tg.photoUrl);
   return link.data.properties.hashed_token;
 }
 
@@ -113,7 +146,7 @@ async function handleClient(req: Request) {
     const u = typeof body.initData === 'string' ? await verifyInitData(body.initData) : null;
     if (!u?.id) return json({ error: 'bad_init_data' }, 401);
     const name = [u.first_name, u.last_name].filter(Boolean).join(' ').slice(0, 40) || 'Друг';
-    try { return json({ status: 'ok', token_hash: await issueLogin({ id: u.id, username: u.username, name }) }); }
+    try { return json({ status: 'ok', token_hash: await issueLogin({ id: u.id, username: u.username, name, photoUrl: u.photo_url }) }); }
     catch (e) { return json({ error: (e as Error).message }, 500); }
   }
 
