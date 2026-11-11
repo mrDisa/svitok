@@ -729,3 +729,42 @@ a.as-btn,button.as-btn{background:var(--cream);color:var(--ink)}
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.01ms!important;transition-duration:.01ms!important}
 }
+
+/* ======================================================================
+   ОБСУЖДЕНИЯ ПОД СТИХАМИ
+   ====================================================================== */
+/* счётчик на кнопке «Обсуждение» в ленте */
+.act .ico{position:relative}
+.act .cnt{position:absolute;top:-3px;right:-3px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:var(--gold);color:#2a1d08;font-size:11px;font-weight:700;font-style:normal;line-height:20px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+
+/* кружок у стиха в главе: видно, что тут уже кто-то писал */
+.reader .vcm{display:inline-flex;align-items:center;gap:3px;vertical-align:.1em;margin:0 4px 0 3px;padding:1px 8px 2px 6px;border-radius:99px;background:rgba(212,167,92,.15);color:var(--gold-2);font-family:var(--sans);font-size:11.5px;font-weight:700;line-height:1.4}
+.reader .vcm svg{width:13px;height:13px;stroke-width:2}
+.reader .vcm:active{background:rgba(212,167,92,.32)}
+
+/* шторка обсуждения */
+.cm-verse{padding:12px 14px;border-radius:16px;background:var(--surface-2);margin:0 0 14px}
+.cm-verse p{font-family:var(--serif);font-size:16px;line-height:1.45;margin:0 0 6px}
+.cm-verse p:empty{display:none}
+.cm-verse small{font-family:var(--serif);font-style:italic;font-size:12.5px;color:var(--gold-2)}
+.cm-list{max-height:46vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.cm-load,.cm-empty{color:var(--muted);text-align:center;font-size:14px;line-height:1.5;padding:14px 4px}
+.cm{margin:0 0 16px}
+.cm:last-child{margin-bottom:0}
+.cm p{margin:6px 0;font-size:15px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.cm-who{display:flex;align-items:center;gap:8px}
+.cm-who b{font-size:14px}
+.cm-who span{color:var(--faint);font-size:12.5px}
+.cm-kid{margin-left:30px;padding-left:12px;border-left:1px solid var(--line)}
+.cm-hid{font-size:12px;color:var(--gold-2);margin:6px 0}
+.cm-acts{display:flex;gap:16px}
+.cm-acts button{font-size:12.5px;font-weight:600;color:var(--faint);padding:2px 0}
+.cm-acts button:active{color:var(--gold-2)}
+.cm-form{display:flex;flex-direction:column;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.cm-form textarea{width:100%;resize:none;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);color:inherit;font:inherit;font-size:15px;line-height:1.4;padding:11px 13px}
+.cm-form textarea:focus{outline:none;border-color:rgba(212,167,92,.5)}
+.cm-replying{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;border-radius:12px;background:rgba(212,167,92,.12);color:var(--gold-2);font-size:13px}
+.cm-replying button{color:var(--faint);font-size:14px;padding:0 4px}
+
+/* «Ответы вам» в профиле */
+.cm-notice small.cm-ref{color:var(--faint)}

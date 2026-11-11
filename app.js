@@ -28,6 +28,7 @@ const I = {
   image: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>'),
   text: svg('<path d="M5 6h14M5 12h14M5 18h9"/>'),
   friend: svg('<path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"/>'),
+  talk: svg('<path d="M20.5 11.8a7.8 7.8 0 0 1-7.8 7.8H8.6L4 22l1.2-4.3A7.8 7.8 0 1 1 20.5 11.8z"/><path d="M9.5 12.7h.01M12.5 12.7h.01M15.5 12.7h.01" stroke-width="3"/>'),
   download: svg('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>'),
   search: svg('<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/>'),
   heartFill: svg('<path d="M12 20.5s-7.6-4.6-9.4-9.4C1.3 7.6 3.5 4.3 7 4.3c2 0 3.5 1 5 3 1.5-2 3-3 5-3 3.5 0 5.7 3.3 4.4 6.8-1.8 4.8-9.4 9.4-9.4 9.4z"/>'),
@@ -213,6 +214,7 @@ function cardHTML(it, tag, forcedArt) {
     <div class="actions">
       <button class="act${liked ? ' on' : ''}" data-act="like" aria-label="Нравится"><span class="ico">${I.heart}</span>Нравится</button>
       <button class="act${saved ? ' on' : ''}" data-act="save" aria-label="Сохранить"><span class="ico">${I.bookmark}</span>Сохранить</button>
+      ${typeof Comments !== 'undefined' ? Comments.actionHTML(it) : ''}
       <button class="act" data-act="share" aria-label="Поделиться"><span class="ico">${I.share}</span>Поделиться</button>
       <button class="act" data-act="read" aria-label="Читать главу"><span class="ico">${I.book}</span>Глава</button>
     </div>
@@ -256,6 +258,7 @@ function resetFeed() {
   const cards = $$('.card', f);
   cards[0]?.classList.add('is-active');
   syncScenes(cards, 0);
+  if (typeof Comments !== 'undefined') Comments.decorate(0);
 }
 
 function bump(topic, delta) {
@@ -285,6 +288,7 @@ function onCardActive(card) {
   if (idx > 0 && !S.hinted) { S.hinted = true; store.set('hinted', true); $('#swipe-hint').hidden = true; }
   if (idx >= cards.length - 4) appendCards(8);
   syncScenes($$('.card', feedEl()), idx);
+  if (typeof Comments !== 'undefined') Comments.decorate(idx);
   // держим DOM лёгким
   if (cards.length > 160 && idx > 80) {
     const f = feedEl();
@@ -365,6 +369,7 @@ function initFeed() {
       else if (act === 'save') toggleSave(it);
       else if (act === 'share') openShare({ ...it, art: cardArt.get(card.dataset.key) });
       else if (act === 'read') { openTab('bible'); openChapter(it.b, it.c, it.v); }
+      else if (act === 'talk') Comments.openFromItem(it);
       return;
     }
     const now = Date.now();
@@ -624,6 +629,7 @@ async function openChapter(b, c, hl) {
       <button data-go="${next ? next.join(',') : ''}" ${next ? '' : 'disabled'}>${next ? esc(chLabel(next)) : ''} →</button>
     </div>
     ${Plans.readerBar(b, c)}`;
+  if (typeof Comments !== 'undefined') Comments.markChapter(b, c);
   if (hl) {
     const target = $(`.v[data-v="${h1}"]`, el);
     if (target) requestAnimationFrame(() => {
@@ -664,6 +670,7 @@ function updateSelBar() {
   bar.hidden = false;
   bar.innerHTML = `
     <button data-sel="save">${I.bookmark}Сохранить</button>
+    ${Comments.available ? `<button data-sel="talk">${I.talk}Обсуждение</button>` : ''}
     <button data-sel="share">${I.share}Поделиться</button>
     <button data-sel="copy">${I.copy}Копировать</button>
     <button data-sel="clear">${I.close}Отмена</button>`;
@@ -673,7 +680,7 @@ function initBible() {
   bibleEl().addEventListener('click', (e) => {
     const t = e.target;
     let m;
-    if (Plans.onClick(e) || Search.onClick(e)) return;
+    if (Plans.onClick(e) || Search.onClick(e) || Comments.onBibleClick(e)) return;
     if ((m = t.closest('[data-book]'))) renderChapters(+m.dataset.book);
     else if ((m = t.closest('[data-ch]'))) openChapter(bibleRoute.b, +m.dataset.ch);
     else if ((m = t.closest('[data-continue]'))) openChapter(S.last.b, S.last.c);
@@ -700,6 +707,7 @@ function initBible() {
     if (act === 'save') { if (!isSaved(it.id)) toggleSave(it); else toast('Уже в избранном'); }
     else if (act === 'share') openShare(it);
     else if (act === 'copy') { await copyText(shareText(it)); toast('Скопировано'); }
+    else if (act === 'talk') Comments.openFromItem(it);
     if (act !== 'share') clearSelection();
   });
   renderBooks();
@@ -768,8 +776,11 @@ function renderMore() {
         <div class="size-ctl"><button data-size="-1" aria-label="Меньше">A−</button><span class="val">${pct}%</span><button data-size="1" aria-label="Больше">A+</button></div></div>
       <button class="row" data-offline><div class="grow">Библия без интернета<small>Все 66 книг и картины на телефоне, около 14 МБ</small></div><span class="val">${off}</span></button>
     </div>
+    <div class="sec-title">Уведомления</div>
     <div class="group">
       <button class="row" data-remind><div class="grow">Напоминание «Слово дня»<small>${esc(Reminders.label())}</small></div>${I.next}</button>
+      <div class="row"><div class="grow">Ответы в обсуждениях<small>Показывать в профиле, когда вам ответили под стихом</small></div>
+        <button class="switch${Comments.notifyOn() ? ' on' : ''}" data-cm-notify role="switch" aria-checked="${Comments.notifyOn()}" aria-label="Ответы в обсуждениях"><i></i></button></div>
     </div>
     <div class="group">
       <button class="row" data-share-app><div class="grow">Поделиться приложением<small>Отправьте ссылку друзьям и близким</small></div>${I.share}</button>
@@ -779,7 +790,7 @@ function renderMore() {
       <button class="row" data-onb><div class="grow">Как пользоваться<small>Показать знакомство ещё раз</small></div>${I.next}</button>
       <button class="row" data-reset><div class="grow">Сбросить рекомендации<small>Лента снова станет общей</small></div></button>
     </div>
-    <p class="about"><b>Свиток</b> — бесплатное приложение без рекламы и подписок. Текст: Синодальный перевод, канонические книги. Лайки, избранное и место чтения хранятся только на этом устройстве.</p>`;
+    <p class="about"><b>Свиток</b> — бесплатное приложение без рекламы и подписок. Текст: Синодальный перевод, канонические книги. Лайки, избранное и место чтения остаются на этом устройстве, а обсуждения под стихами видны всем — их читают другие люди.</p>`;
   // в Telegram предлагаем иконку на экране «Домой», если клиент это умеет и её ещё нет
   if (Tg.inTg) Tg.ready().then(() => Tg.homeScreenStatus()).then((st) => {
     const b = $('[data-tg-home]');
@@ -803,6 +814,8 @@ function initMore() {
       try { if (navigator.share) await navigator.share(data); else { await copyText(data.url); toast('Ссылка скопирована'); } } catch { /* отмена */ }
     } else if (e.target.closest('[data-tg-home]')) {
       if (!Tg.addToHomeScreen(() => { toast('Иконка добавлена на экран «Домой»'); renderMore(); })) toast('Эта версия Telegram пока не умеет добавлять иконку');
+    } else if (e.target.closest('[data-cm-notify]')) {
+      Comments.toggleNotify(); renderMore();
     } else if (e.target.closest('[data-remind]')) {
       Reminders.open();
     } else if (e.target.closest('[data-goal-open]')) {
@@ -874,7 +887,7 @@ function openTab(name) {
   $('#install-pill').hidden = name !== 'feed' || STANDALONE || Tg.inTg || S.pillHidden;
   if (name === 'saved') renderSaved();
   if (name === 'more') { renderMore(); Reminders.refresh().then((changed) => { if (changed && $('[data-view=more]').classList.contains('on')) renderMore(); }); }
-  if (name === 'profile') Social.render();
+  if (name === 'profile') { Social.render(); Comments.load(); }
 }
 
 let appStarted = false;
@@ -900,6 +913,7 @@ async function startApp() {
   initSaved();
   initMore();
   Social.init();
+  Comments.init();
   Goal.init();
   Onboarding.init();
   // открыли по ссылке на стих (из Telegram) — сразу показываем главу вместо «Слова дня»

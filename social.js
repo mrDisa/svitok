@@ -111,8 +111,12 @@ const Social = (() => {
     outgoing = rows.filter((f) => f.status === 'pending' && f.requester === me.id).map((f) => ({ f, p: f.ad }));
     inbox = sh.data || [];
     updateBadge();
+    if (typeof Comments !== 'undefined') Comments.load();
   }
-  function badgeCount() { return incoming.length + inbox.filter((s) => !s.read_at).length; }
+  function badgeCount() {
+    return incoming.length + inbox.filter((s) => !s.read_at).length
+      + (typeof Comments !== 'undefined' ? Comments.unread() : 0);
+  }
   function updateBadge() {
     const b = $('#tabbar [data-tab=profile]');
     if (!b) return;
@@ -250,6 +254,7 @@ const Social = (() => {
       </div>
       ${statsHTML()}
       <p class="sync-note">✓ Прогресс сохраняется в аккаунте</p>
+      ${typeof Comments !== 'undefined' ? `<div class="cm-notices">${Comments.profileHTML()}</div>` : ''}
       <div class="sec-title">Друзья · ${friends.length}</div>
       <div class="f-actions">
         <button data-f="add">${ICON.plus}Добавить друга</button>
@@ -641,5 +646,8 @@ const Social = (() => {
   async function accessToken() { if (!sb) return null; const { data } = await sb.auth.getSession(); return data.session?.access_token || null; }
   const isTelegram = () => !!user?.user_metadata?.tg_id;
 
-  return { init, render, sendVerse, accessToken, isTelegram, get enabled() { return enabled; } };
+  return {
+    init, render, sendVerse, accessToken, isTelegram, avatar, ago, updateBadge,
+    get enabled() { return enabled; }, get sb() { return sb; }, get me() { return me; },
+  };
 })();
