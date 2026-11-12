@@ -34,7 +34,7 @@
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "Свиток", "alternateName": "Свиток — Библия каждый день", "url": "https://mrdisa.github.io/svitok/", "description": "Бесплатная Библия без рекламы: стихи Синодального перевода лентой на фоне великих картин, вся Библия с поиском, планы чтения и «Слово дня». В Telegram и на телефоне.", "inLanguage": "ru", "applicationCategory": "LifestyleApplication", "operatingSystem": "iOS, Android, Windows, macOS, Telegram", "image": "https://mrdisa.github.io/svitok/icons/og.png", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "RUB"}, "isAccessibleForFree": true, "sameAs": ["https://t.me/svitok_bible_bot"]}</script>
 
 <link rel="preload" href="fonts/ptserif-400-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=64">
 <script>
   // Решаем до отрисовки, что показывать: лендинг или само приложение,
   // чтобы при запуске с экрана «Домой» лендинг даже не мелькнул.
@@ -297,7 +297,7 @@
 <!-- ============================ ПРИЛОЖЕНИЕ ============================ -->
 <div id="app" data-tab="feed">
   <header class="topbar">
-    <button class="goal-ring" id="goal-ring" aria-label="Цель на сегодня"></button>
+    <div class="home-header"><span class="home-brand">Свиток</span><div class="home-switch" role="group" aria-label="Главная"><button class="on" data-home="feed" aria-pressed="true">Стихи</button><button data-home="posts" aria-pressed="false">Посты</button></div><button class="goal-ring" id="goal-ring" aria-label="Цель на сегодня"></button></div>
     <div class="chips" id="chips" role="tablist"></div>
   </header>
 
@@ -309,6 +309,7 @@
     <section class="view" data-view="bible"><div class="scroller" id="bible"></div></section>
     <section class="view" data-view="saved"><div class="scroller" id="saved"></div></section>
     <section class="view" data-view="chats"><div class="scroller" id="chats"></div></section>
+    <section class="view" data-view="posts"><div class="scroller" id="posts"></div></section>
     <section class="view" data-view="profile"><div class="scroller" id="profile"></div></section>
     <section class="view" data-view="more"><div class="scroller" id="more"></div></section>
   </main>
@@ -338,14 +339,15 @@
 
 <script src="config.js" defer></script>
 <script src="vendor/supabase-2.45.4.js" defer></script>
-<script src="social.js" defer></script>
-<script src="chats.js" defer></script>
+<script src="social.js?v=64" defer></script>
+<script src="chats.js?v=64" defer></script>
+<script src="posts.js?v=64" defer></script>
 <script src="onboarding.js" defer></script>
 <script src="plans.js" defer></script>
 <script src="search.js" defer></script>
 <script src="tg.js" defer></script>
 <script src="reminders.js" defer></script>
 <script src="comments.js" defer></script>
-<script src="app.js" defer></script>
+<script src="app.js?v=64" defer></script>
 </body>
 </html>

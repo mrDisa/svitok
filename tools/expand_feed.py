@@ -25,25 +25,31 @@ MAX_LENGTH = 390
 # Регулярные выражения намеренно узкие: это не богословский классификатор, а
 # воспроизводимый первый отбор для последующей редакторской вычитки.
 TOPIC_PATTERNS = {
-    "hope": (r"надежд", r"упова", r"ожида", r"будущ"),
+    "hope": (r"\bнадежд", r"\bупова", r"ожида"),
     "anxiety": (r"не бойся", r"не страш", r"не ужас", r"не смущ", r"забот", r"тревог", r"страх"),
     "peace": (r"мир бож", r"мир мой", r"мир вам", r"оставляю вам мир", r"покой", r"спокойн", r"тишин", r"примир"),
-    "love": (r"любов", r"милосерд", r"благоволен"),
-    "strength": (r"\bсил[ауыеой]\b", r"сильн", r"укреп", r"крепост", r"мужай", r"поддерж"),
-    "comfort": (r"утеш", r"скорб", r"плач", r"слез", r"печал", r"исцел", r"сокруш"),
-    "thanks": (r"благодар", r"слав", r"хвал", r"радост", r"возраду", r"весели"),
-    "wisdom": (r"мудр", r"разум", r"настав", r"позна", r"совет"),
-    "forgiveness": (r"прощ", r"грех", r"беззакони", r"вина", r"очист"),
-    "faith": (r"\bвер[а-яё]", r"увер", r"довер"),
-    "prayer": (r"молит", r"прос", r"взыск", r"воззов", r"вопи", r"призыва"),
+    "love": (r"любов",),
+    "strength": (r"\bсил[ауыеой]\b", r"укреп", r"крепост", r"мужай", r"поддерж"),
+    "comfort": (r"утеш", r"исцеляет", r"отрет.*слез", r"плач.*радост"),
+    "thanks": (r"благодар", r"слав.*господ", r"хвал.*господ", r"возраду.*господ", r"весели.*господ"),
+    "wisdom": (r"мудр", r"настав", r"совет"),
+    "forgiveness": (r"прощ", r"очист.*грех", r"грех.*не воспомян", r"покаян"),
+    "faith": (r"\bверою\b", r"\bвере\b", r"\bверы\b", r"\bверу\b", r"веруй", r"верьте", r"верующ", r"уверовал"),
+    "prayer": (r"молит", r"молите", r"просите", r"взыск", r"воззов", r"вопи", r"призыва"),
     "jesus": (r"иисус христос", r"христос иисус", r"господь иисус", r"сын человеческий"),
 }
 
 # Дидактические, поэтические и пророческие книги дают подходящий ленте
 # контекст; исторические повествования не попадают в автоматическое расширение.
 CURATED_BOOKS = {
-    17, 18, 19, 20, 21, 22, 23, 24, 26, 31, 32, 34, 37, 38,
+    18, 19, 21, 22, 23, 24, 26, 31, 32, 34, 37, 38,
     *range(39, 66),
+}
+
+EXCLUDED_BY_TOPIC = {
+    "hope": (r"надежд[а-яё]*.*(?:погиб|исчез|уничтож)", r"нет надежды"),
+    "peace": (r"непримир", r"не войдут в покой", r"гнев.*покой"),
+    "faith": (r"невер", r"не вер"),
 }
 
 
@@ -56,6 +62,14 @@ def clean(text: str) -> str:
 def score(text: str, patterns: tuple[str, ...]) -> int:
     lowered = text.lower()
     return sum(bool(re.search(pattern, lowered)) for pattern in patterns)
+
+
+def is_allowed(topic: str, text: str, book_index: int) -> bool:
+    lowered = text.lower()
+    if any(re.search(pattern, lowered) for pattern in EXCLUDED_BY_TOPIC.get(topic, ())):
+        return False
+    # «Иисус» в Ветхом Завете — это Иисус Навин, а не слова Христа.
+    return topic != "jesus" or book_index >= 39
 
 
 def editorial_feed(books: list[dict]) -> list[dict]:
@@ -111,7 +125,7 @@ def main() -> None:
                     continue
                 scores = {topic: score(text, patterns) for topic, patterns in TOPIC_PATTERNS.items()}
                 for topic, topic_score in scores.items():
-                    if topic_score:
+                    if topic_score and is_allowed(topic, text, book_index):
                         candidates[topic].append((topic_score, book_index, chapter_index, verse_index, text))
 
     added = []

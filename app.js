@@ -207,6 +207,7 @@ function cardHTML(it, tag, forcedArt) {
       <div class="card-tag">${esc(tag || TOPIC_NAME[it.t])}</div>
       <p class="verse">${esc(it.x)}</p>
       <div class="ref">${esc(it.r)}</div>
+      <button class="verse-compose" data-act="post">${I.text}<span>Написать об этом стихе</span></button>
     </div>
     <div class="actions">
       <button class="act${liked ? ' on' : ''}" data-act="like" aria-label="Нравится"><span class="ico">${I.heart}</span>Нравится</button>
@@ -365,6 +366,7 @@ function initFeed() {
       if (act === 'like') toggleLike(card, it);
       else if (act === 'save') toggleSave(it);
       else if (act === 'share') openShare({ ...it, art: cardArt.get(card.dataset.key) });
+      else if (act === 'post') Posts.compose({ ...it, art: cardArt.get(card.dataset.key) });
       else if (act === 'read') { openTab('bible'); openChapter(it.b, it.c, it.v); }
       else if (act === 'talk') Comments.openFromItem(it);
       return;
@@ -500,6 +502,7 @@ function openShare(it) {
     <div class="share-preview"><div class="ph" id="share-img"></div></div>
     ${Social.enabled && friends.length ? `<div class="share-friends">${friends.map((p) => `<button data-s="chat-pick" data-user="${p.id}" data-name="${esc(p.display_name)}">${Social.avatar(p,46)}<span>${esc(p.display_name.split(' ')[0])}</span></button>`).join('')}</div><div id="share-chat"></div>` : ''}
     <div class="sheet-actions">
+      <button class="wide" data-s="post">${I.text}Поделиться мыслью</button>
       <button class="primary" data-s="image" disabled>${I.image}Поделиться картинкой</button>
       ${Social.enabled && !friends.length ? `<button class="wide" data-s="friend">${I.friend}Выбрать друга</button>` : ''}
       <button data-s="text">${I.text}Текстом</button>
@@ -517,6 +520,7 @@ function openShare(it) {
       const b = e.target.closest('[data-s]');
       if (!b) return;
       const kind = b.dataset.s;
+      if (kind === 'post') { Posts.compose(it); return; }
       if (kind === 'friend') { Social.sendVerse(it); return; }
       if (kind === 'chat-pick') {
         $$('.share-friends button', sheet).forEach((x) => x.classList.toggle('on', x === b));
@@ -547,22 +551,85 @@ function openShare(it) {
 
 /* ---------- шторка ---------- */
 let sheetCleanup = null;
+let sheetExit = null;
+function stopSheetExit() {
+  if (!sheetExit) return;
+  sheetExit.animation?.cancel();
+  sheetExit.fade?.cancel();
+  sheetExit.ghost.remove();
+  sheetExit = null;
+}
 function openSheet(html, onMount, onClose) {
+  stopSheetExit();
+  // При переходе между формами снимаем обработчики предыдущей панели.
+  if (!$('#sheet').hidden) closeSheet(false);
   const sh = $('#sheet');
-  sh.innerHTML = '<div class="grab"></div>' + html;
+  sh.innerHTML = '<button type="button" class="grab" aria-label="Закрыть окно"></button>' + html;
   sh.hidden = false;
   $('#sheet-backdrop').hidden = false;
   sheetCleanup = onClose || null;
+  const grab = $('.grab', sh);
+  let gesture = null, moved = false;
+  const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  grab.addEventListener('pointerdown', e => {
+    if (!e.isPrimary || e.button !== 0) return;
+    gesture = { id: e.pointerId, y: e.clientY, time: performance.now(), distance: 0 };
+    moved = false;
+    sh.style.animation = 'none';
+    grab.setPointerCapture(e.pointerId);
+  });
+  grab.addEventListener('pointermove', e => {
+    if (!gesture || gesture.id !== e.pointerId) return;
+    gesture.distance = Math.max(0, e.clientY - gesture.y);
+    moved ||= Math.abs(e.clientY - gesture.y) > 6;
+    sh.style.translate = `0 ${gesture.distance}px`;
+    $('#sheet-backdrop').style.opacity = String(Math.max(.25, 1 - gesture.distance / Math.max(sh.offsetHeight, 1)));
+  });
+  const endGesture = (e, cancelled = false) => {
+    if (!gesture || gesture.id !== e.pointerId) return;
+    const { distance, time } = gesture;
+    gesture = null;
+    const dismiss = !cancelled && (distance > Math.min(120, sh.offsetHeight * .25) || (distance > 32 && distance / Math.max(1, performance.now() - time) > .55));
+    if (dismiss) { closeSheet(); return; }
+    if (distance && !reduced()) sh.animate([{ translate: `0 ${distance}px` }, { translate: '0 0' }], { duration: 200, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    sh.style.translate = '';
+    $('#sheet-backdrop').style.opacity = '';
+  };
+  grab.addEventListener('pointerup', e => endGesture(e));
+  grab.addEventListener('pointercancel', e => endGesture(e, true));
+  grab.onclick = () => { if (!moved) closeSheet(); moved = false; };
+  sh.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); closeSheet(); } });
   onMount && onMount(sh);
 }
-function closeSheet() {
+function closeSheet(animate = true) {
   const sh = $('#sheet');
   if (sh.hidden) return;
-  sh.hidden = true;
-  $('#sheet-backdrop').hidden = true;
-  sh.replaceWith(sh.cloneNode(false)); // снимаем обработчики
-  $('#sheet').hidden = true;
-  if (sheetCleanup) { sheetCleanup(); sheetCleanup = null; }
+  stopSheetExit();
+  const backdrop = $('#sheet-backdrop');
+  const cleanup = sheetCleanup; sheetCleanup = null;
+  const ghost = sh.cloneNode(true);
+  const baseTransform = getComputedStyle(sh).transform;
+  const distance = getComputedStyle(sh).translate;
+  const backdropOpacity = getComputedStyle(backdrop).opacity;
+  $$('input,textarea,select', ghost).forEach((node, i) => { node.value = $$('input,textarea,select', sh)[i].value; });
+  const replacement = sh.cloneNode(false);
+  replacement.hidden = true; replacement.style.translate = ''; replacement.style.animation = '';
+  sh.replaceWith(replacement); // закрытая форма сразу перестаёт принимать события и асинхронные результаты
+  backdrop.style.opacity = '';
+  if (animate !== false && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    ghost.removeAttribute('id'); $$('[id]', ghost).forEach(node => node.removeAttribute('id'));
+    ghost.inert = true; ghost.setAttribute('aria-hidden', 'true');
+    ghost.style.animation = 'none'; ghost.style.pointerEvents = 'none';
+    replacement.after(ghost); ghost.scrollTop = sh.scrollTop;
+    const animation = ghost.animate([
+      { transform: baseTransform, translate: distance === 'none' ? '0 0' : distance, opacity: 1 },
+      { transform: baseTransform, translate: `0 ${ghost.offsetHeight + 40}px`, opacity: 0 }
+    ], { duration: 240, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' });
+    const fade = backdrop.animate([{ opacity: backdropOpacity }, { opacity: 0 }], { duration: 240, fill: 'forwards' });
+    const exit = sheetExit = { ghost, animation, fade };
+    animation.finished.then(() => { if (sheetExit === exit) { stopSheetExit(); backdrop.hidden = true; } }).catch(() => {});
+  } else { backdrop.hidden = true; }
+  cleanup?.();
 }
 
 /* ======================================================================
@@ -785,6 +852,7 @@ function renderMore() {
     </div>
     <div class="sec-title">Конфиденциальность профиля</div>
     <div class="group">
+      <div class="row"><div class="grow">Список друзей<small>Список и число друзей видны другим пользователям. Выключите, чтобы скрыть их.</small></div><button class="switch${Social.me?.friends_visible !== false ? ' on' : ''}" data-friends-privacy role="switch" aria-checked="${Social.me?.friends_visible !== false}" aria-label="Показывать список друзей" ${Social.me ? '' : 'disabled'}><i></i></button></div>
       <div class="row"><div class="grow">Избранное<small>Показывать друзьям сохранённые места Писания</small></div><button class="switch${privacy.saved ? ' on' : ''}" data-privacy="saved" role="switch"><i></i></button></div>
       <div class="row"><div class="grow">Лайки<small>Показывать друзьям понравившиеся стихи</small></div><button class="switch${privacy.likes ? ' on' : ''}" data-privacy="likes" role="switch"><i></i></button></div>
       <div class="row"><div class="grow">Комментарии<small>Показывать друзьям ваши комментарии</small></div><button class="switch${privacy.comments ? ' on' : ''}" data-privacy="comments" role="switch"><i></i></button></div>
@@ -831,6 +899,10 @@ function initMore() {
       if (!Tg.addToHomeScreen(() => { toast('Иконка добавлена на экран «Домой»'); renderMore(); })) toast('Эта версия Telegram пока не умеет добавлять иконку');
     } else if (e.target.closest('[data-cm-notify]')) {
       Comments.toggleNotify(); renderMore();
+    } else if ((m = e.target.closest('[data-friends-privacy]'))) {
+      m.disabled = true;
+      await Social.setFriendsVisible(Social.me?.friends_visible === false);
+      if ($('#app').dataset.tab === 'more') renderMore();
     } else if ((m = e.target.closest('[data-privacy]'))) {
       const privacy = { saved: true, likes: true, comments: true, ...store.get('privacy', {}) };
       privacy[m.dataset.privacy] = !privacy[m.dataset.privacy]; store.set('privacy', privacy); renderMore();
@@ -902,11 +974,17 @@ function openTab(name) {
   if (name !== 'bible') clearSelection();
   $('#app').dataset.tab = name;
   $$('.view').forEach((v) => v.classList.toggle('on', v.dataset.view === name));
-  $$('#tabbar button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
-  $('.topbar').classList.toggle('hidden', name !== 'feed');
+  $$('#tabbar button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name || (name === 'posts' && b.dataset.tab === 'feed')));
+  $('.topbar').classList.toggle('hidden', name !== 'feed' && name !== 'posts');
+  $$('.home-header [data-home]').forEach(button => {
+    const active = button.dataset.home === name;
+    button.classList.toggle('on', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
   $('#install-pill').hidden = name !== 'feed' || STANDALONE || Tg.inTg || S.pillHidden;
   if (name === 'saved') renderSaved();
   if (name === 'chats') Chats.render();
+  if (name === 'posts') Posts.render();
   if (name === 'more') { renderMore(); Reminders.refresh().then((changed) => { if (changed && $('[data-view=more]').classList.contains('on')) renderMore(); }); }
   if (name === 'profile') { Social.render(); Comments.load(); }
 }
@@ -935,6 +1013,7 @@ async function startApp() {
   initMore();
   Social.init();
   Chats.init();
+  Posts.init();
   Comments.init();
   Goal.init();
   Onboarding.init();
