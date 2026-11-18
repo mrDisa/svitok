@@ -124,6 +124,75 @@ const Goal = (() => {
   return { init, count, setGoal, openSheet, label, stats, reload, optionsHTML, OPTIONS, DWELL, get goal() { load(); return goal; }, versesWord };
 })();
 
+/* ---------------- предложение подключить уведомления ---------------- */
+const PushOnboarding = (() => {
+  // Версия знакомства с уведомлениями, а не версия каждого исправления приложения.
+  const REVISION = 1;
+  const SEEN_KEY = 'pushOnboardingRevision';
+  const root = () => $('#onb');
+  let busy = false;
+  const active = () => root().dataset.pushOnboarding === '1' && !root().hidden;
+
+  function close() {
+    if (!active()) return;
+    const el = root();
+    el.hidden = true; el.innerHTML = '';
+    delete el.dataset.pushOnboarding;
+    el.removeAttribute('role'); el.removeAttribute('aria-modal'); el.removeAttribute('aria-labelledby');
+  }
+  function render(error = false) {
+    const st = Reminders.onboardingState();
+    const action = st.ok ? 'enable' : st.install ? 'install' : 'close';
+    const label = st.ok ? 'Включить уведомления' : st.install ? 'Как установить на iPhone' : 'Понятно';
+    root().innerHTML = `<div class="onb-bg"><img class="art ok" src="img/art/millet-angelus.jpg" alt=""></div><div class="onb-shade"></div>
+      <div class="onb-panel"><div class="onb-body enter">
+        <div class="onb-hero onb-notification-icon" aria-hidden="true">${svg('<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>')}</div>
+        <h1 id="push-onboarding-title">Оставайтесь на связи</h1>
+        <p>Узнавайте о сообщениях и стихах от друзей. Напомним о чтении, если цель или план ещё не выполнены.</p>
+        <div class="onb-notification-preview"><img src="icons/icon-192.png" width="40" height="40" alt=""><div><b>Свиток</b><span>Друг поделился с вами стихом</span></div></div>
+        <p class="onb-notification-note">Типы уведомлений можно изменить в настройках.</p>
+        <p class="onb-notification-status" data-push-status role="status">${esc(!st.ok ? st.why : error ? st.hint : '')}</p>
+        <button class="onb-btn" data-push-onboarding="${action}">${label}</button>
+        ${action !== 'close' ? '<button class="onb-skip" data-push-onboarding="close">Не сейчас</button>' : ''}
+      </div></div>`;
+    root().querySelector('[data-push-onboarding]')?.focus({ preventScroll: true });
+  }
+  function maybeShow() {
+    const st = Reminders.onboardingState();
+    const key = st.install ? 'pushInstallOnboardingRevision' : SEEN_KEY;
+    if (store.get(key, 0) >= REVISION) return false;
+    store.set(key, REVISION);
+    if (st.connected) return false;
+    const el = root();
+    el.hidden = false; el.dataset.pushOnboarding = '1';
+    el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-labelledby', 'push-onboarding-title');
+    render();
+    return true;
+  }
+  async function onClick(e) {
+    if (!active()) return;
+    const button = e.target.closest('button[data-push-onboarding]');
+    if (!button) return;
+    const action = button.dataset.pushOnboarding;
+    if (action === 'close') { close(); return; }
+    if (action === 'install') { close(); location.href = './#install'; return; }
+    if (action !== 'enable' || busy) return;
+    busy = true; button.disabled = true; button.textContent = 'Подключаем уведомления…';
+    // Системное разрешение запрашивается только после явного нажатия.
+    try {
+      const connected = await Reminders.activate();
+      if (active()) { if (connected) close(); else render(true); }
+    } catch { if (active()) render(true); }
+    finally { busy = false; }
+  }
+  function init() {
+    root().addEventListener('click', onClick);
+    root().addEventListener('keydown', e => { if (e.key === 'Escape' && active()) { e.preventDefault(); close(); } });
+  }
+  function reconcile() { if (active() && Reminders.onboardingState().connected) close(); }
+  return { init, maybeShow, reconcile };
+})();
+
 /* ---------------- знакомство при первом запуске ---------------- */
 const Onboarding = (() => {
   const ART_BY_STEP = ['rembrandt-head', 'aivazovsky-water', 'millet-angelus', 'plockhorst-shepherd', 'hunt-light'];
@@ -192,7 +261,7 @@ const Onboarding = (() => {
     }
     const root = el();
     root.classList.add('leave');
-    setTimeout(() => { root.hidden = true; root.classList.remove('leave'); root.innerHTML = ''; }, 350);
+    setTimeout(() => { root.hidden = true; root.classList.remove('leave'); root.innerHTML = ''; PushOnboarding.maybeShow(); }, 350);
   }
 
   function onClick(e) {
@@ -226,7 +295,9 @@ const Onboarding = (() => {
 
   function init() {
     el().addEventListener('click', onClick);
-    start(false);
+    PushOnboarding.init();
+    if (store.get('onboarded', false)) PushOnboarding.maybeShow();
+    else start(false);
   }
 
   return { init, start };
@@ -292,7 +363,7 @@ const DailyWord = (() => {
 
   function maybeShow() {
     el().addEventListener('click', onClick);
-    if (!store.get('onboarded', false)) return;          // в первый день знакомство важнее
+    if (!store.get('onboarded', false) || !$('#onb').hidden) return; // знакомство важнее заставки дня
     if (store.get('dwDate', '') === key()) return;        // уже показывали сегодня
     store.set('dwDate', key());
     show();

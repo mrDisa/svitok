@@ -10,6 +10,7 @@
 //
 // Секреты: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, CRON_SECRET, TELEGRAM_BOT_TOKEN, APP_URL.
 
+import { comeback } from './comeback.ts';
 import webpush from 'npm:web-push@3.6.7';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -74,8 +75,8 @@ async function sendPush(row: { endpoint: string; sub: webpush.PushSubscription; 
     return 'error';
   }
 }
-async function sendChatPush(row: { endpoint: string; sub: webpush.PushSubscription }, sender: string, body: string) {
-  const payload = JSON.stringify({ title: sender, body: clip(body, 150), url: `${APP_URL}?pwa=1#chats`, tag: `chat-${row.endpoint}` });
+async function sendChatPush(row: { endpoint: string; sub: webpush.PushSubscription }, sender: string, body: string, chatId: string) {
+  const payload = JSON.stringify({ title: sender, body: clip(body, 150), url: `${APP_URL}?pwa=1&chat=${encodeURIComponent(chatId)}#chats`, tag: `chat-${chatId}` });
   try { await webpush.sendNotification(row.sub, payload, { TTL: 24 * 3600, urgency: 'high' }); return 'ok'; }
   catch (e) { const code = (e as { statusCode?: number }).statusCode; if (code === 404 || code === 410) await admin.from('push_subs').delete().eq('endpoint', row.endpoint); return 'error'; }
 }
@@ -93,15 +94,62 @@ async function sendTelegram(row: { user_id: string; tg_id: number; tz_offset: nu
   return r.ok ? 'ok' : 'error';
 }
 
+async function drainChats(messageId: string | null = null) {
+  const { data: jobs, error } = await admin.rpc('claim_chat_push', { mid: messageId });
+  if (error) throw error;
+  let sent = 0;
+  for (const job of jobs || []) {
+    const [{ data: message, error: messageError }, { data: sub, error: subError }] = await Promise.all([
+      admin.from('chat_messages').select('chat_id,sender,body,attachment,deleted_at,created_at').eq('id', job.message_id).maybeSingle(),
+      admin.from('push_subs').select('endpoint,sub,user_id,messages_enabled').eq('endpoint', job.endpoint).maybeSingle(),
+    ]);
+    if (messageError || subError) continue;
+    let discard = !message || message.deleted_at || !sub?.messages_enabled || !sub?.user_id;
+    if (!discard) {
+      const { data: member, error: memberError } = await admin.from('chat_members').select('last_read_at').eq('chat_id', message!.chat_id).eq('user_id', sub!.user_id).maybeSingle();
+      if (memberError) continue;
+      discard = !member || (member.last_read_at && member.last_read_at >= message!.created_at) || sub!.user_id === message!.sender;
+    }
+    if (!discard) {
+      const { data: profile } = await admin.from('profiles').select('display_name').eq('id', message!.sender).maybeSingle();
+      const result = await sendChatPush(sub!, profile?.display_name || 'Новое сообщение', message!.attachment?.type === 'verse' ? `📖 ${message!.attachment.ref}${message!.body && message!.body !== message!.attachment.ref ? ' · ' + message!.body : ''}` : message!.body, message!.chat_id);
+      if (result === 'ok') { sent++; discard = true; }
+    }
+    if (discard) await admin.from('chat_push_queue').delete().eq('message_id', job.message_id).eq('endpoint', job.endpoint);
+  }
+  await admin.from('chat_push_queue').delete().lt('created_at', new Date(Date.now() - 864e5).toISOString());
+  return sent;
+}
+
 async function run() {
-  const stats = { push: 0, tg: 0, skipped: 0, errors: 0 };
+  const stats = { push: 0, tg: 0, comeback: 0, chat: await drainChats(), skipped: 0, errors: 0 };
   const [{ data: subs }, { data: tgs }] = await Promise.all([
-    admin.from('push_subs').select('endpoint, sub, hour, tz_offset, last_sent'),
+    admin.from('push_subs').select('endpoint, sub, hour, tz_offset, last_sent, daily_enabled, comeback_enabled, comeback_sent, progress, user_id'),
     admin.from('tg_daily').select('user_id, tg_id, hour, tz_offset, last_sent'),
   ]);
   for (const s of subs ?? []) {
     const key = dateKey(s.tz_offset);
-    if (localParts(s.tz_offset).h !== s.hour || s.last_sent === key) { stats.skipped++; continue; }
+    if (s.comeback_enabled && localParts(s.tz_offset).h === 20 && s.comeback_sent !== key) {
+      let progress = s.progress;
+      if (s.user_id) {
+        const { data, error } = await admin.from('user_state').select('data').eq('user_id', s.user_id).maybeSingle();
+        // При недоступном прогрессе не присылаем ошибочное напоминание.
+        progress = error ? null : data?.data;
+      }
+      let reminder: ReturnType<typeof comeback> = null;
+      try { reminder = progress && comeback(progress, s.tz_offset); } catch { stats.errors++; }
+      if (reminder) {
+        // Атомарно резервируем дату до отправки, чтобы пересекающиеся cron не дублировали push.
+        const { data: claimed } = await admin.from('push_subs').update({ comeback_sent: key }).eq('endpoint', s.endpoint).or(`comeback_sent.is.null,comeback_sent.lt.${key}`).select('endpoint');
+        if (claimed?.length) {
+          try {
+            await webpush.sendNotification(s.sub, JSON.stringify({ ...reminder, url: `${APP_URL}?pwa=1${reminder.hash}`, tag: 'comeback' }), { TTL: 3 * 3600 });
+            stats.comeback++;
+          } catch { stats.errors++; }
+        }
+      }
+    }
+    if (!s.daily_enabled || localParts(s.tz_offset).h !== s.hour || s.last_sent === key) { stats.skipped++; continue; }
     const res = await sendPush(s);
     if (res === 'ok') { stats.push++; await admin.from('push_subs').update({ last_sent: key }).eq('endpoint', s.endpoint); }
     else if (res === 'error') stats.errors++;
@@ -135,6 +183,11 @@ Deno.serve(async (req) => {
 
   if (action === 'run') {
     if (!CRON_SECRET || req.headers.get('x-cron-secret') !== CRON_SECRET) return json({ error: 'forbidden' }, 403);
+    // Адресный повтор доставки без запуска остальных рассылок.
+    if (body.messageId !== undefined) {
+      if (!/^\d+$/.test(String(body.messageId))) return json({ error: 'bad_message' }, 400);
+      return json({ chat: await drainChats(String(body.messageId)) });
+    }
     return json(await run());
   }
 
@@ -143,9 +196,14 @@ Deno.serve(async (req) => {
     const ok = sub && typeof sub.endpoint === 'string' && /^https:\/\//.test(sub.endpoint) && sub.keys?.p256dh && sub.keys?.auth;
     if (!ok) return json({ error: 'bad_subscription' }, 400);
     const user = await userFrom(req);
+    if (JSON.stringify(body.progress || {}).length > 32768) return json({ error: 'progress_too_large' }, 400);
     const { error } = await admin.from('push_subs').upsert({
       endpoint: sub.endpoint, sub: { endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } },
       hour: clampHour(body.hour), tz_offset: clampTz(body.tz), user_id: user?.id ?? null,
+      messages_enabled: body.preferences?.messages !== false,
+      comeback_enabled: body.preferences?.comeback !== false,
+      daily_enabled: body.preferences?.daily !== false,
+      progress: body.progress && typeof body.progress === 'object' ? body.progress : {},
     });
     return error ? json({ error: error.message }, 500) : json({ ok: true });
   }
@@ -160,31 +218,39 @@ Deno.serve(async (req) => {
     return json({ result: await sendPush(data) });
   }
 
-  // После отправки сообщения клиент вызывает этот маршрут с JWT. Получателями могут
-  // стать лишь другие участники того же чата, у которых уже включены push-уведомления.
+  // Текст и адресаты берутся из сохранённого сообщения, а не из тела запроса.
   if (action === 'chat') {
     const user = await userFrom(req);
-    if (!user || typeof body.chatId !== 'string' || typeof body.body !== 'string') return json({ error: 'bad_chat' }, 400);
-    const { data: mine } = await admin.from('chat_members').select('chat_id').eq('chat_id', body.chatId).eq('user_id', user.id).maybeSingle();
-    if (!mine) return json({ error: 'forbidden' }, 403);
-    const [{ data: recipients }, { data: profile }] = await Promise.all([
-      admin.from('chat_members').select('user_id').eq('chat_id', body.chatId).neq('user_id', user.id),
-      admin.from('profiles').select('display_name').eq('id', user.id).maybeSingle(),
+    if (!user || !/^\d+$/.test(String(body.messageId || ''))) return json({ error: 'bad_message' }, 400);
+    const { data: message } = await admin.from('chat_messages').select('sender,created_at').eq('id', body.messageId).maybeSingle();
+    if (!message || message.sender !== user.id) return json({ error: 'forbidden' }, 403);
+    // Realtime-клиент подтверждает показ внутри приложения, пока очередь ожидает push.
+    await new Promise(resolve => setTimeout(resolve, 3200));
+    return json({ ok: true, sent: await drainChats(String(body.messageId)) });
+  }
+
+  if (action === 'chat-received') {
+    const user = await userFrom(req);
+    if (!user || !/^\d+$/.test(String(body.messageId || '')) || typeof body.endpoint !== 'string') return json({ error: 'bad_receipt' }, 400);
+    const [{ data: sub }, { data: message }] = await Promise.all([
+      admin.from('push_subs').select('endpoint').eq('endpoint', body.endpoint).eq('user_id', user.id).maybeSingle(),
+      admin.from('chat_messages').select('chat_id').eq('id', body.messageId).maybeSingle(),
     ]);
-    const ids = (recipients || []).map((x) => x.user_id);
-    if (!ids.length) return json({ ok: true, sent: 0 });
-    const { data: subs } = await admin.from('push_subs').select('endpoint,sub').in('user_id', ids);
-    const results = await Promise.all((subs || []).map((s) => sendChatPush(s, profile?.display_name || 'Новое сообщение', body.body)));
-    return json({ ok: true, sent: results.filter((x) => x === 'ok').length });
+    if (!sub || !message) return json({ error: 'forbidden' }, 403);
+    const { data: member } = await admin.from('chat_members').select('user_id').eq('chat_id', message.chat_id).eq('user_id', user.id).maybeSingle();
+    if (!member) return json({ error: 'forbidden' }, 403);
+    const { error } = await admin.from('chat_push_queue').delete().eq('message_id', body.messageId).eq('endpoint', body.endpoint);
+    return error ? json({ error: 'receipt_failed' }, 500) : json({ ok: true });
   }
 
   // текущее состояние: Telegram — по аккаунту, пуш — по подписке этого устройства
   if (action === 'status') {
     const user = await userFrom(req);
-    let push = null, tg = null;
+    let push: { hour: number; messages_enabled: boolean; comeback_enabled: boolean; daily_enabled: boolean } | null = null;
+    let tg: { hour: number } | null = null;
     if (typeof body.endpoint === 'string' && body.endpoint) {
-      const { data } = await admin.from('push_subs').select('hour').eq('endpoint', body.endpoint).maybeSingle();
-      if (data) push = { hour: data.hour };
+      const { data } = await admin.from('push_subs').select('hour,messages_enabled,comeback_enabled,daily_enabled').eq('endpoint', body.endpoint).maybeSingle();
+      if (data) push = data;
     }
     if (user) {
       const { data } = await admin.from('tg_daily').select('hour').eq('user_id', user.id).maybeSingle();

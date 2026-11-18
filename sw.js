@@ -1,6 +1,6 @@
 /* Service Worker «Свитка»: офлайн-работа без сервера.
    При каждом обновлении сайта увеличивайте VERSION, чтобы телефоны получили новую версию. */
-const VERSION = 'svitok-v64';
+const VERSION = 'svitok-v70';
 const ART = 'svitok-art-v1'; // картины не меняются, кэш живёт между версиями
 const BIBLE = 'svitok-bible-v1'; // текст Библии не меняется, кэш живёт между версиями
 
@@ -37,9 +37,19 @@ const SHELL = [
 
 self.addEventListener('install', (e) => {
   // cache:'reload' — берём свежие файлы с сервера, а не из HTTP-кэша браузера (GitHub Pages держит их 10 минут)
-  e.waitUntil(caches.open(VERSION)
-    .then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' }))))
-    .then(() => self.skipWaiting()));
+  e.waitUntil((async () => {
+    // Неудача кэша отдельного шрифта/картины не должна блокировать push-worker.
+    const cache = await caches.open(VERSION).catch(() => null);
+    if (cache) await Promise.allSettled(SHELL.map(async url => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      try {
+        const response = await fetch(new Request(url, { cache: 'reload', signal: controller.signal }));
+        if (response.ok) await cache.put(url, response);
+      } finally { clearTimeout(timer); }
+    }));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (e) => {
@@ -131,19 +141,23 @@ self.addEventListener('message', (e) => {
 self.addEventListener('push', (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data && e.data.text() }; }
+  // Открываем установку, получившую push: в том числе локальную HTTPS-версию.
+  const target = new URL(self.registration.scope);
+  const requested = new URL(d.url || '?pwa=1', target);
+  target.search = requested.search; target.hash = requested.hash;
   e.waitUntil(self.registration.showNotification(d.title || 'Свиток', {
     body: d.body || '',
     icon: 'icons/icon-192.png',
     badge: 'icons/icon-192.png',
     tag: d.tag || 'daily',
-    data: { url: d.url || './?pwa=1' },
+    data: { url: target.href },
   }));
 });
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   e.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for (const w of wins) { if ('focus' in w) { await w.focus(); return; } }
+    for (const w of wins) { if ('focus' in w) { await w.navigate((e.notification.data && e.notification.data.url) || './?pwa=1'); await w.focus(); return; } }
     await self.clients.openWindow((e.notification.data && e.notification.data.url) || './?pwa=1');
   })());
 });

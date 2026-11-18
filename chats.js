@@ -5,6 +5,67 @@
 const Chats = (() => {
   let active = null, chats = [], channel = null, replyTo = null, pendingOwnEvents = 0;
   const memberCache = new Map();
+  let channelUser = null, requestedChat = null, bannerTimer;
+  const received = new Set();
+  const chatVisible = id => !document.hidden && $('#app').dataset.tab === 'chats' && active?.id === id;
+  function dismissNotice() {
+    clearTimeout(bannerTimer);
+    document.querySelector('.message-notice')?.remove();
+  }
+  function notice(message, userId) {
+    dismissNotice();
+    const box = document.createElement('div');
+    box.className = 'message-notice';
+    box.setAttribute('role', 'region');
+    box.setAttribute('aria-label', 'Новое сообщение');
+    box.setAttribute('aria-live', 'polite');
+    const verse = message.attachment?.type === 'verse' ? message.attachment.ref : '';
+    const preview = verse ? `📖 ${verse}${message.body && message.body !== verse ? ' · ' + message.body : ''}` : message.body;
+    box.innerHTML = `<button class="message-notice-open" aria-label="Открыть сообщение"><span class="message-notice-avatar">${I.talk}</span><span class="message-notice-copy"><b>Новое сообщение</b><small></small></span>${I.next}</button><button class="message-notice-close" aria-label="Скрыть уведомление">${I.close}</button>`;
+    $('small', box).textContent = String(preview || 'Сообщение').slice(0, 180);
+    $('.message-notice-open', box).onclick = () => { dismissNotice(); if (me()?.id === userId) navigate(message.chat_id); };
+    $('.message-notice-close', box).onclick = dismissNotice;
+    document.body.appendChild(box);
+    bannerTimer = setTimeout(dismissNotice, 6500);
+    // Содержимое показываем сразу; имя и аватар дополняем без задержки доставки.
+    sb().from('profiles').select('id,display_name,avatar_color,avatar_url').eq('id', message.sender).maybeSingle().then(({ data }) => {
+      if (!box.isConnected || me()?.id !== userId || !data) return;
+      $('b', box).textContent = data.display_name || 'Новое сообщение';
+      $('.message-notice-avatar', box).innerHTML = Social.avatar(data, 42);
+    }).catch(() => {});
+  }
+  async function receive(message) {
+    const uid = me()?.id;
+    if (!uid || document.hidden || !document.documentElement.classList.contains('mode-app') || message.sender === uid || message.deleted_at || !Reminders.messagesOn()) return;
+    if (received.has(String(message.id))) return;
+    received.add(String(message.id));
+    if (received.size > 200) received.delete(received.values().next().value);
+    if (chatVisible(message.chat_id)) {
+      await open(message.chat_id);
+      if (me()?.id !== uid || document.hidden) return;
+      if (!chatVisible(message.chat_id)) notice(message, uid);
+    } else notice(message, uid);
+    if (me()?.id === uid && !document.hidden) Reminders.acknowledge(message.id).catch(() => {});
+  }
+  function connect() {
+    const uid = me()?.id || null;
+    if (channelUser === uid) return;
+    if (channel) sb()?.removeChannel(channel);
+    channel = null; channelUser = uid; received.clear(); dismissNotice();
+    active = null; requestedChat = null; memberCache.clear(); chats = [];
+    if (!uid) return;
+    // Supabase отбирает события всех чатов по RLS пользователя, включая новые чаты.
+    channel = sb().channel(`message-notices:${uid}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, payload => {
+      if (me()?.id !== uid) return;
+      if (payload.new.sender === uid) { pendingOwnEvents = Math.max(0, pendingOwnEvents - 1); return; }
+      receive(payload.new).catch(() => {});
+    }).subscribe();
+  }
+  function navigate(id) {
+    requestedChat = id;
+    if ($('#app').dataset.tab === 'chats') render(); else openTab('chats');
+  }
+
   const el = () => $('#chats');
   const icon = (d) => `<svg viewBox="0 0 24 24">${d}</svg>`;
   const plus = icon('<path d="M12 5v14M5 12h14"/>');
@@ -51,9 +112,9 @@ const Chats = (() => {
     active = null;
     const cached = store.get(`chatPreview:${me().id}`, []);
     const cachedJSON = JSON.stringify(cached);
-    if (cached.length) { chats = cached; chats.forEach((c) => { if (c.members) memberCache.set(c.id, c.members); }); drawList(); }
+    if (cached.length) { chats = cached; chats.forEach((c) => { if (c.members) memberCache.set(c.id, c.members); }); await drawList(); }
     else el().innerHTML = `<div class="page-head"><h1>Чаты</h1><p>Загружаем переписки…</p></div><div class="chat-loading"><i></i><i></i><i></i></div>`;
-    try { await load(); if (!cached.length || JSON.stringify(chats) !== cachedJSON) await drawList(); } catch (e) { if (!cached.length) el().innerHTML = '<div class="empty">Не удалось загрузить чаты.<br>Проверьте интернет и попробуйте снова.</div>'; }
+    try { await load(); if (requestedChat) { const id = requestedChat; requestedChat = null; await open(id); } else if (!cached.length || JSON.stringify(chats) !== cachedJSON) await drawList(); } catch (e) { if (!cached.length) el().innerHTML = '<div class="empty">Не удалось загрузить чаты.<br>Проверьте интернет и попробуйте снова.</div>'; }
   }
   async function drawList() {
     const rows = await Promise.all(chats.map(async (c) => ({ c, ms: await members(c.id) })));
@@ -63,25 +124,22 @@ const Chats = (() => {
     }).join('') : '<div class="hint-card">Здесь появятся ваши переписки. Начните диалог с другом.</div>'}</div>`;
   }
   async function open(id) {
-    const c = chats.find((v) => v.id === id); if (!c) return;
-    active = c; replyTo = null; el().innerHTML = `<div class="chat-loading"><i></i><i></i><i></i></div>`; const ms = await members(id); const name = title(c, ms);
-    const { data } = await sb().from('chat_messages').select('*').eq('chat_id', id).order('created_at', { ascending:false }).limit(50);
+    const uid = me()?.id;
+    const c = chats.find((v) => v.id === id); if (!c || !uid) return;
+    const draft = active?.id === id ? $('input', el())?.value || '' : '';
+    if (active?.id !== id) replyTo = null;
+    active = c; el().innerHTML = `<div class="chat-loading"><i></i><i></i><i></i></div>`; const ms = await members(id); const name = title(c, ms);
+    const { data, error } = await sb().from('chat_messages').select('*').eq('chat_id', id).order('created_at', { ascending:false }).limit(50);
+    if (error) throw error;
+    if (me()?.id !== uid || active?.id !== id) return;
     const list = (data || []).reverse(); const shown = new Set(list.map((m) => String(m.id))); const replyIds = [...new Set(list.map((m) => m.reply_to && String(m.reply_to)).filter((replyId) => replyId && !shown.has(replyId)))]; let replySources = [];
     if (replyIds.length) { const { data: sources } = await sb().from('chat_messages').select('*').in('id', replyIds); replySources = sources || []; }
+    if (me()?.id !== uid || active?.id !== id) return;
     el().innerHTML = `<div class="chat-head"><button class="icon-btn" data-chat-back>${back}</button>${Social.avatar(c.kind === 'group' ? me() : ms.find((x) => x.user_id !== me().id)?.p, 40)}<button class="grow chat-title" data-chat-info><b>${esc(name)}</b><small>${c.kind === 'group' ? `${ms.length} участников` : 'в сети недавно'}</small></button></div>${c.kind === 'group' ? `<div class="chat-members">${ms.map((x) => esc(x.p.display_name)).join(', ')}</div>` : ''}<div class="chat-stream">${messagesHTML(list, replySources)}</div><form class="chat-compose" id="chat-compose"><div class="reply-bar" hidden></div><input maxlength="2000" autocomplete="off" placeholder="Сообщение" aria-label="Сообщение"><button aria-label="Отправить">${send}</button></form>`;
-    await sb().from('chat_members').update({ last_read_at: new Date().toISOString() }).eq('chat_id', id).eq('user_id', me().id);
-    const stream = $('.chat-stream', el()); stream.scrollTop = stream.scrollHeight;
-    subscribe(id);
-  }
-  function subscribe(chatId) {
-    if (channel?.chatId === chatId) return;
-    if (channel) sb().removeChannel(channel);
-    channel = sb().channel(`chat:${chatId}`).on('postgres_changes', { event:'INSERT', schema:'public', table:'chat_messages', filter:`chat_id=eq.${chatId}` }, (payload) => {
-      const own = String(payload.new.sender) === String(me().id);
-      if (own && pendingOwnEvents) { pendingOwnEvents--; return; }
-      if (active?.id === chatId && !document.hidden && !own) open(chatId);
-    }).subscribe();
-    channel.chatId = chatId;
+    $('input', el()).value = draft; updateReply();
+    await sb().from('chat_members').update({ last_read_at: new Date().toISOString() }).eq('chat_id', id).eq('user_id', uid);
+    const stream = $('.chat-stream', el()); if (stream) stream.scrollTop = stream.scrollHeight;
+
   }
   function messagesHTML(list, replySources = []) {
     const byId = new Map([...list, ...replySources].map((m) => [String(m.id), m]));
@@ -163,15 +221,25 @@ const Chats = (() => {
   async function createGroup(name, people) {
     return createChat('create_group_chat', { chat_title:name, invited:people });
   }
-  async function sendMessage(form) { const input=$('input',form), body=input.value.trim(); if(!body||!active)return; input.value=''; const reply=replyTo; const tempId=`local-${Date.now()}`; const stream=$('.chat-stream',el()); const quote=reply ? `<div class="reply-quote"><b>Ответ</b><span>${esc(reply.text)}</span></div>` : ''; stream?.insertAdjacentHTML('beforeend',`<div class="bubble mine${reply ? ' reply-pop' : ''}" data-message="${tempId}">${quote}<div>${esc(body)}</div><span class="meta">${fmt(new Date().toISOString())}<span class="read-ticks"><i></i><i></i></span></span></div>`); stream?.scrollTo({top:stream.scrollHeight,behavior:'smooth'}); pendingOwnEvents++; const {data,error}=await sb().from('chat_messages').insert({chat_id:active.id,sender:me().id,body,reply_to:reply?.id || null}).select().single(); if(error){pendingOwnEvents=Math.max(0,pendingOwnEvents-1);$(`[data-message="${tempId}"]`,el())?.remove();toast('Не удалось отправить');return;} const bubble=$(`[data-message="${tempId}"]`,el());if(bubble)bubble.dataset.message=data.id;replyTo=null;updateReply(); }
+  async function notifyMessage(messageId) {
+    const cfg = window.SVITOK_CONFIG || {};
+    const token = await Social.accessToken();
+    if (!token) return;
+    // Серверная очередь сохранит сообщение для cron, если этот запрос оборвётся.
+    await fetch(`${cfg.supabaseUrl}/functions/v1/notify`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', apikey: cfg.supabaseKey, Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ action: 'chat', messageId }),
+    });
+  }
+  async function sendMessage(form) { const input=$('input',form), body=input.value.trim(); if(!body||!active)return; input.value=''; const reply=replyTo; const tempId=`local-${Date.now()}`; const stream=$('.chat-stream',el()); const quote=reply ? `<div class="reply-quote"><b>Ответ</b><span>${esc(reply.text)}</span></div>` : ''; stream?.insertAdjacentHTML('beforeend',`<div class="bubble mine${reply ? ' reply-pop' : ''}" data-message="${tempId}">${quote}<div>${esc(body)}</div><span class="meta">${fmt(new Date().toISOString())}<span class="read-ticks"><i></i><i></i></span></span></div>`); stream?.scrollTo({top:stream.scrollHeight,behavior:'smooth'}); pendingOwnEvents++; const {data,error}=await sb().from('chat_messages').insert({chat_id:active.id,sender:me().id,body,reply_to:reply?.id || null}).select().single(); if(error){pendingOwnEvents=Math.max(0,pendingOwnEvents-1);$(`[data-message="${tempId}"]`,el())?.remove();toast('Не удалось отправить');return;} const bubble=$(`[data-message="${tempId}"]`,el());if(bubble)bubble.dataset.message=data.id;notifyMessage(data.id).catch(()=>{});replyTo=null;updateReply(); }
   async function sendVerse(it, userIds, note) {
-    try { for (const userId of userIds) { const { data:id, error } = await sb().rpc('create_direct_chat', { other_user:userId }); if (error) throw error; const r = await sb().from('chat_messages').insert({ chat_id:id, sender:me().id, body:note || it.r, attachment:{type:'verse',ref:it.r,text:it.x,verse_id:it.id} }); if (r.error) throw r.error; } return null; } catch (error) { console.error('share to chat', error); return error; }
+    try { for (const userId of userIds) { const { data:id, error } = await sb().rpc('create_direct_chat', { other_user:userId }); if (error) throw error; const r = await sb().from('chat_messages').insert({ chat_id:id, sender:me().id, body:note || it.r, attachment:{type:'verse',ref:it.r,text:it.x,verse_id:it.id} }).select('id').single(); if (r.error) throw r.error; notifyMessage(r.data.id).catch(()=>{}); } return null; } catch (error) { console.error('share to chat', error); return error; }
   }
   async function info() { if (!active) return; const ms=await members(active.id); if(active.kind==='direct'){const other=ms.find((m)=>m.user_id!==me().id);if(other)return Social.viewProfile(other.user_id);} openSheet(`<h2>${esc(title(active,ms))}</h2><p class="sheet-text">Участники группы</p><div class="group">${ms.map((m)=>`<button class="row person" data-chat-person="${m.user_id}">${Social.avatar(m.p,40)}<span class="grow"><b>${esc(m.p.display_name)}</b><small>${m.role==='owner'?'Создатель':m.role==='admin'?'Администратор':'Участник'}</small></span>${I.next}</button>`).join('')}</div>`, (sheet)=>sheet.onclick=(e)=>{const b=e.target.closest('[data-chat-person]');if(b) Social.viewProfile(b.dataset.chatPerson);}); }
   function setReply(b) { if (!b?.dataset.message || b.classList.contains('deleted')) return; replyTo={id:b.dataset.message,text:b.innerText.slice(0,90)}; updateReply(); }
   function messageMenu(b) { if (!b?.dataset.message || b.classList.contains('deleted')) return; const mine=b.classList.contains('mine'); openSheet(`<h2>Сообщение</h2><div class="sheet-actions"><button class="wide" data-chat-reply>Ответить</button>${mine ? '<button class="wide danger" data-chat-delete>Удалить</button>' : ''}<button class="wide" data-close-sheet>Отмена</button></div>`, (sheet)=>sheet.onclick=(e)=>{if(e.target.closest('[data-close-sheet]'))return closeSheet();if(e.target.closest('[data-chat-reply]')){setReply(b);return closeSheet();}if(mine&&e.target.closest('[data-chat-delete]')){closeSheet();remove(b.dataset.message);}}); }
   async function remove(id) { openSheet(`<h2>Удалить сообщение?</h2><p class="sheet-text">Оно исчезнет у всех участников чата.</p><div class="sheet-actions"><button class="danger" data-confirm-delete>Удалить у всех</button><button class="wide" data-close-sheet>Отмена</button></div>`, (sheet)=>sheet.onclick=async(e)=>{if(e.target.closest('[data-close-sheet]'))return closeSheet();if(e.target.closest('[data-confirm-delete]')){const {error}=await sb().from('chat_messages').update({deleted_at:new Date().toISOString(),body:''}).eq('id',id).eq('sender',me().id);if(error)toast('Не удалось удалить');closeSheet();open(active.id);}}); }
-  function init() { let listHold=null, listHeld=false; const cancelListHold=()=>{if(listHold)clearTimeout(listHold);listHold=null;}; const closestMessage=(y)=>[...$$('.chat-stream .bubble[data-message]',el())].sort((a,b)=>Math.abs((a.getBoundingClientRect().top+a.getBoundingClientRect().bottom)/2-y)-Math.abs((b.getBoundingClientRect().top+b.getBoundingClientRect().bottom)/2-y))[0]; el().addEventListener('click',(e)=>{if(e.target.closest('[data-chat-login]'))return openTab('profile');if(e.target.closest('[data-chat-new]'))return newChat();if(e.target.closest('[data-chat-back]')){active=null;return drawList();}if(e.target.closest('[data-chat-info]'))return info();if(e.target.closest('[data-reply-cancel]')){replyTo=null;return updateReply();}const b=e.target.closest('[data-chat-open]');if(b&&!listHeld)return open(b.dataset.chatOpen);listHeld=false;}); el().addEventListener('submit',(e)=>{if(e.target.id==='chat-compose'){e.preventDefault();sendMessage(e.target);}}); let start=null, holdTimer=null, held=false; const cancelHold=()=>{if(holdTimer)clearTimeout(holdTimer);holdTimer=null;}; const resetSwipe=(b)=>{b?.classList.remove('swiping');if(b)b.style.transform='';}; el().addEventListener('touchstart',(e)=>{const row=e.target.closest('[data-chat-open]');if(row){listHeld=false;listHold=setTimeout(()=>{listHeld=true;chatMenu(row.dataset.chatOpen);},550);return;}const direct=e.target.closest('.bubble[data-message]');if(!direct&&!e.target.closest('.chat-stream'))return;const b=direct||closestMessage(e.touches[0].clientY);if(!b)return;held=false;start={x:e.touches[0].clientX,y:e.touches[0].clientY,b,direct:!!direct};if(direct)holdTimer=setTimeout(()=>{held=true;messageMenu(b);},550);},{passive:true});el().addEventListener('touchmove',(e)=>{cancelListHold();if(!start)return;const dx=e.touches[0].clientX-start.x,dy=e.touches[0].clientY-start.y;if(Math.abs(dy)>12||dx>0){resetSwipe(start.b);cancelHold();return;}if(dx<-6){cancelHold();start.b.classList.add('swiping');start.b.style.transform=`translateX(${Math.max(dx*.42,-42)}px)`;}},{passive:true});el().addEventListener('touchend',(e)=>{cancelListHold();cancelHold();if(start){const dx=e.changedTouches[0].clientX-start.x;const b=start.b;resetSwipe(b);if(!held&&dx<-55){setReply(b);b.classList.add('reply-selected');setTimeout(()=>b.classList.remove('reply-selected'),320);}}start=null;},{passive:true});el().addEventListener('touchcancel',()=>{cancelListHold();cancelHold();resetSwipe(start?.b);start=null;},{passive:true});el().addEventListener('contextmenu',(e)=>{const row=e.target.closest('[data-chat-open]');if(row){e.preventDefault();return chatMenu(row.dataset.chatOpen);}const b=e.target.closest('.bubble');if(!b?.dataset.message)return;e.preventDefault();messageMenu(b);}); document.addEventListener('visibilitychange',()=>{if(!document.hidden&&active) open(active.id);}); }
+  function init() { let listHold=null, listHeld=false; const cancelListHold=()=>{if(listHold)clearTimeout(listHold);listHold=null;}; const closestMessage=(y)=>[...$$('.chat-stream .bubble[data-message]',el())].sort((a,b)=>Math.abs((a.getBoundingClientRect().top+a.getBoundingClientRect().bottom)/2-y)-Math.abs((b.getBoundingClientRect().top+b.getBoundingClientRect().bottom)/2-y))[0]; el().addEventListener('click',(e)=>{if(e.target.closest('[data-chat-login]'))return openTab('profile');if(e.target.closest('[data-chat-new]'))return newChat();if(e.target.closest('[data-chat-back]')){active=null;return drawList();}if(e.target.closest('[data-chat-info]'))return info();if(e.target.closest('[data-reply-cancel]')){replyTo=null;return updateReply();}const b=e.target.closest('[data-chat-open]');if(b&&!listHeld)return open(b.dataset.chatOpen);listHeld=false;}); el().addEventListener('submit',(e)=>{if(e.target.id==='chat-compose'){e.preventDefault();sendMessage(e.target);}}); let start=null, holdTimer=null, held=false; const cancelHold=()=>{if(holdTimer)clearTimeout(holdTimer);holdTimer=null;}; const resetSwipe=(b)=>{b?.classList.remove('swiping');if(b)b.style.transform='';}; el().addEventListener('touchstart',(e)=>{const row=e.target.closest('[data-chat-open]');if(row){listHeld=false;listHold=setTimeout(()=>{listHeld=true;chatMenu(row.dataset.chatOpen);},550);return;}const direct=e.target.closest('.bubble[data-message]');if(!direct&&!e.target.closest('.chat-stream'))return;const b=direct||closestMessage(e.touches[0].clientY);if(!b)return;held=false;start={x:e.touches[0].clientX,y:e.touches[0].clientY,b,direct:!!direct};if(direct)holdTimer=setTimeout(()=>{held=true;messageMenu(b);},550);},{passive:true});el().addEventListener('touchmove',(e)=>{cancelListHold();if(!start)return;const dx=e.touches[0].clientX-start.x,dy=e.touches[0].clientY-start.y;if(Math.abs(dy)>12||dx>0){resetSwipe(start.b);cancelHold();return;}if(dx<-6){cancelHold();start.b.classList.add('swiping');start.b.style.transform=`translateX(${Math.max(dx*.42,-42)}px)`;}},{passive:true});el().addEventListener('touchend',(e)=>{cancelListHold();cancelHold();if(start){const dx=e.changedTouches[0].clientX-start.x;const b=start.b;resetSwipe(b);if(!held&&dx<-55){setReply(b);b.classList.add('reply-selected');setTimeout(()=>b.classList.remove('reply-selected'),320);}}start=null;},{passive:true});el().addEventListener('touchcancel',()=>{cancelListHold();cancelHold();resetSwipe(start?.b);start=null;},{passive:true});el().addEventListener('contextmenu',(e)=>{const row=e.target.closest('[data-chat-open]');if(row){e.preventDefault();return chatMenu(row.dataset.chatOpen);}const b=e.target.closest('.bubble');if(!b?.dataset.message)return;e.preventDefault();messageMenu(b);}); document.addEventListener('visibilitychange',()=>{if(document.hidden)dismissNotice();else if(active&&chatVisible(active.id))open(active.id);}); }
   function updateReply(){const bar=$('.reply-bar',el());if(!bar)return;bar.hidden=!replyTo;bar.innerHTML=replyTo?`<span>↩ ${esc(replyTo.text)}</span><button type="button" data-reply-cancel>×</button>`:'';}
-  return { init, render, sendVerse, createDirect };
+  return { init, render, sendVerse, createDirect, connect, navigate };
 })();

@@ -137,6 +137,8 @@ const Social = (() => {
     await loadMe();
     await loadAll();
     if (me) await pull().catch(() => {});
+    Chats.connect();
+    await Reminders.init();
     if ($('[data-view=profile]').classList.contains('on')) render();
     if ($('[data-view=posts]')?.classList.contains('on')) Posts.render();
   }
@@ -403,7 +405,8 @@ const Social = (() => {
   }
   function renderSignedOut() {
     el().innerHTML = `
-      <div class="p-head">
+      <div class="p-head profile-hero">
+        <button class="profile-menu" data-f="settings" aria-label="Настройки">${ICON.menu}</button>
         <span class="ava guest" style="width:92px;height:92px">${ICON.person}</span>
         <h1>Гость</h1>
         <p>Прогресс и избранное хранятся на этом телефоне</p>
@@ -774,6 +777,8 @@ const Social = (() => {
     const { error } = await sb.auth.signOut();
     if (error) { toast('Не удалось выйти'); return; }
     me = null; user = null; friends = []; incoming = []; outgoing = []; inbox = [];
+    Chats.connect();
+    await Reminders.init();
     updateBadge(); openTab('profile'); render(); toast('Вы вышли из аккаунта');
   }
   const isTelegram = () => !!user?.user_metadata?.tg_id;

@@ -56,7 +56,7 @@ function gradFor(id) {
 /* ---------- хранилище (только на этом телефоне) ---------- */
 const store = {
   get(k, d) { try { const v = localStorage.getItem('svitok:' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem('svitok:' + k, JSON.stringify(v)); } catch { /* приватный режим */ } },
+  set(k, v) { try { localStorage.setItem('svitok:' + k, JSON.stringify(v)); if (['day', 'streak', 'goal', 'plans'].includes(k)) Reminders.scheduleSync(); } catch { /* приватный режим */ } },
 };
 const S = {
   likes: new Set(store.get('likes', [])),
@@ -848,6 +848,7 @@ function renderMore() {
     <div class="group">
       <div class="row"><div class="grow">Размер текста<small>Для ленты и чтения</small></div>
         <div class="size-ctl"><button data-size="-1" aria-label="Меньше">A−</button><span class="val">${pct}%</span><button data-size="1" aria-label="Больше">A+</button></div></div>
+      <button class="row" data-feed-background><div class="grow">Фон ленты<small>${{art: 'Картины', black: 'Чёрный', color: 'Цветовой'}[feedBackground().mode]}</small></div>${I.next}</button>
       <button class="row" data-offline><div class="grow">Библия без интернета<small>Все 66 книг и картины на телефоне, около 14 МБ</small></div><span class="val">${off}</span></button>
     </div>
     <div class="sec-title">Конфиденциальность профиля</div>
@@ -859,6 +860,7 @@ function renderMore() {
     </div>
     <div class="sec-title">Уведомления</div>
     <div class="group">
+      ${Reminders.settingsHTML()}
       <button class="row" data-remind><div class="grow">Напоминание «Слово дня»<small>${esc(Reminders.label())}</small></div>${I.next}</button>
       <div class="row"><div class="grow">Ответы в обсуждениях<small>Показывать в профиле, когда вам ответили под стихом</small></div>
         <button class="switch${Comments.notifyOn() ? ' on' : ''}" data-cm-notify role="switch" aria-checked="${Comments.notifyOn()}" aria-label="Ответы в обсуждениях"><i></i></button></div>
@@ -881,6 +883,33 @@ function renderMore() {
     else if (st === 'added') { b.hidden = false; b.disabled = true; $('small', b).textContent = 'Уже на экране «Домой» ✓'; }
   });
 }
+function feedBackground() {
+  const pref = store.get('feedBackground', {});
+  return { mode: ['art', 'black', 'color'].includes(pref.mode) ? pref.mode : 'art', color: /^#[0-9a-f]{6}$/i.test(pref.color) ? pref.color : '#253b46' };
+}
+function applyFeedBackground() {
+  const pref = feedBackground();
+  document.documentElement.dataset.feedBackground = pref.mode;
+  document.documentElement.style.setProperty('--feed-color', pref.color);
+}
+function openFeedBackground() {
+  const pref = feedBackground();
+  openSheet(`<h2>Фон ленты</h2><p class="sheet-text">Выберите оформление стихов в ленте.</p><div class="group">${[['art', 'Картины'], ['black', 'Чёрный'], ['color', 'Цветовой']].map(([mode, label]) => `<button class="row" data-bg="${mode}" aria-pressed="${pref.mode === mode}"><span class="grow">${label}</span><span>${pref.mode === mode ? '✓' : ''}</span></button>`).join('')}</div><label class="row">Цвет фона<input type="color" value="${pref.color}" aria-label="Цвет фона ленты" data-bg-color></label>`, sheet => {
+    sheet.addEventListener('click', e => {
+      const b = e.target.closest('[data-bg]');
+      if (!b) return;
+      store.set('feedBackground', { ...feedBackground(), mode: b.dataset.bg });
+      applyFeedBackground(); closeSheet(); renderMore();
+    });
+    sheet.addEventListener('input', e => {
+      if (!e.target.matches('[data-bg-color]')) return;
+      store.set('feedBackground', { mode: 'color', color: e.target.value });
+      applyFeedBackground();
+      $$('[data-bg]', sheet).forEach(b => { b.setAttribute('aria-pressed', b.dataset.bg === 'color'); b.lastElementChild.textContent = b.dataset.bg === 'color' ? '✓' : ''; });
+      renderMore();
+    });
+  });
+}
 function applyScale() { document.documentElement.style.setProperty('--scale', S.scale); }
 function initMore() {
   $('#more').addEventListener('click', async (e) => {
@@ -889,6 +918,14 @@ function initMore() {
     if ((m = e.target.closest('[data-size]'))) {
       S.scale = Math.round(Math.max(0.8, Math.min(1.4, S.scale + 0.1 * +m.dataset.size)) * 10) / 10;
       store.set('scale', S.scale); applyScale(); renderMore();
+    } else if (e.target.closest('button[data-feed-background]')) {
+      openFeedBackground();
+    } else if ((m = e.target.closest('[data-notify-activate]'))) {
+      if (m.disabled) return;
+      m.disabled = true;
+      await Reminders.activate(); renderMore();
+    } else if ((m = e.target.closest('[data-notify-kind]'))) {
+      m.disabled = true; await Reminders.toggle(m.dataset.notifyKind); renderMore();
     } else if (e.target.closest('[data-offline]')) {
       if (offlineState !== 'done') startOfflineDownload(true);
     } else if (e.target.closest('[data-share-app]')) {
@@ -1007,21 +1044,27 @@ async function startApp() {
   BY_TOPIC = {};
   FEED.forEach((v) => (BY_TOPIC[v.t] ||= []).push(v));
 
+  applyFeedBackground();
   initFeed();
   initBible();
   initSaved();
   initMore();
-  Social.init();
+  const socialReady = Social.init();
   Chats.init();
   Posts.init();
   Comments.init();
   Goal.init();
   Onboarding.init();
+  socialReady.then(() => PushOnboarding.reconcile()).catch(() => {});
   // открыли по ссылке на стих (из Telegram) — сразу показываем главу вместо «Слова дня»
   const link = Tg.verseLink();
   if (link && BOOKS[link.b] && link.c >= 1 && link.c <= BOOKS[link.b].c) {
     openTab('bible');
     openChapter(link.b, link.c, [link.v, link.v]);
+  } else if (['#chats', '#bible'].includes(location.hash)) {
+    const tab = location.hash.slice(1);
+    openTab(tab);
+    socialReady.then(() => { if ($('#app').dataset.tab === tab && tab === 'chats') { const id = new URLSearchParams(location.search).get('chat'); if (id) Chats.navigate(id); else Chats.render(); } });
   } else DailyWord.maybeShow();
 
   $('#tabbar').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) openTab(b.dataset.tab); });
