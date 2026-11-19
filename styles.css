@@ -280,7 +280,7 @@ svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .chip.on{background:var(--cream);color:var(--ink);border-color:transparent}
 
 /* лента */
-.feed{position:absolute;inset:0;overflow-y:scroll;scroll-snap-type:y mandatory;overscroll-behavior:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.feed{position:absolute;inset:0;overflow-y:scroll;scroll-snap-type:y mandatory;overscroll-behavior:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch;touch-action:manipulation}
 .feed::-webkit-scrollbar{display:none}
 .card{position:relative;height:100%;scroll-snap-align:start;scroll-snap-stop:always;overflow:hidden;
   background:
@@ -695,7 +695,7 @@ a.as-btn,button.as-btn{background:var(--cream);color:var(--ink)}
 .install-pill a{font-weight:700;color:var(--gold-2);text-decoration:none}
 .install-pill button{width:26px;height:26px;border-radius:50%;background:var(--surface-2);font-size:12px}
 
-.toast{position:absolute;z-index:60;left:50%;top:calc(var(--safe-t) + 14px);transform:translate(-50%,-20px);opacity:0;visibility:hidden;padding:11px 18px;border-radius:99px;background:rgba(245,239,228,.95);color:#15110c;font-weight:600;font-size:14px;transition:transform .3s cubic-bezier(.2,.8,.2,1),opacity .25s,visibility .3s;white-space:nowrap;pointer-events:none}
+.toast{position:absolute;z-index:60;left:50%;top:calc(var(--safe-t) + 14px);transform:translate(-50%,-20px);opacity:0;visibility:hidden;padding:11px 18px;border-radius:99px;background:rgba(245,239,228,.95);color:#15110c;font-weight:600;font-size:14px;transition:transform .3s cubic-bezier(.2,.8,.2,1),opacity .25s,visibility .3s;width:max-content;max-width:calc(100% - 32px);white-space:normal;overflow-wrap:anywhere;text-align:center;pointer-events:none}
 .toast.on{transform:translate(-50%,0);opacity:1;visibility:visible}
 
 .side-brand,.side-foot,.d-only{display:none}
@@ -875,3 +875,6 @@ html[data-feed-background="color"] #feed .scrim{background:rgba(0,0,0,.48)}
 
 .onb-notification-icon{background:rgba(224,187,121,.12);color:var(--gold-2);border:1px solid rgba(224,187,121,.24)}.onb-notification-icon svg{width:44px;height:44px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 .onb-notification-preview{display:flex;align-items:center;gap:12px;padding:16px;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:rgba(40,36,30,.86);margin:0 0 18px}.onb-notification-preview img{flex:none;border-radius:11px}.onb-notification-preview b,.onb-notification-preview span{display:block;text-align:left}.onb-notification-preview b{font-size:13px;margin-bottom:4px}.onb-notification-preview span{font-size:14px;color:var(--cream);line-height:1.4}.onb-body p.onb-notification-note{font-size:13px;margin-bottom:12px}.onb-body p.onb-notification-status{font-size:13px;color:var(--gold-2);margin-bottom:0;min-height:0}.onb-notification-status:empty{display:none}.onb-btn:disabled{opacity:.65;cursor:wait}
+
+/* На iPhone поля мельче 16px вызывают автоматическое приближение при вводе. */
+@media(max-width:1023px){#app input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),#app textarea,#app select{font-size:16px}}

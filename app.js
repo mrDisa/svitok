@@ -354,6 +354,8 @@ function initFeed() {
     resetFeed();
   });
 
+  // Двойное касание ставит лайк, сохраняя масштаб страницы.
+  feedEl().addEventListener('dblclick', (e) => e.preventDefault());
   // кнопки на карточке и двойной тап
   let lastTap = { t: 0, card: null };
   feedEl().addEventListener('click', (e) => {
@@ -373,6 +375,7 @@ function initFeed() {
     }
     const now = Date.now();
     if (lastTap.card === card && now - lastTap.t < 320) {
+      e.preventDefault();
       toggleLike(card, it, true);
       burst(card, e.clientX, e.clientY);
       lastTap = { t: 0, card: null };
