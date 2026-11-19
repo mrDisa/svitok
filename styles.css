@@ -880,3 +880,8 @@ html[data-feed-background="color"] #feed .scrim{background:rgba(0,0,0,.48)}
 @media(max-width:1023px){#app input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),#app textarea,#app select{font-size:16px}}
 
 @media(min-width:1024px){.profile-page-title{top:-44px;margin:-44px 0 18px;padding:30px 0 12px}}
+
+/* Горизонтальный возврат: экран следует пальцу без задержки CSS-переходов. */
+.edge-back-dragging{transition:none!important;animation:none!important;will-change:translate}
+.edge-back-preview{position:absolute;z-index:25;overflow:hidden;background:var(--bg);pointer-events:none!important;box-shadow:-16px 0 40px rgba(0,0,0,.28);will-change:translate}
+.edge-back-preview.sheet{z-index:42}

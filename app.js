@@ -1037,7 +1037,7 @@ function openTab(name, { remember = true } = {}) {
 // Свайп от левого края повторяет доступную кнопку «Назад» текущего экрана.
 function edgeBackAction() {
   if (!$('#onb').hidden || !$('#dw').hidden) return null;
-  if (!$('#sheet').hidden) return () => closeSheet();
+  if (!$('#sheet').hidden) return () => closeSheet(false);
   const view = $('.view.on');
   const back = $('[data-chat-back],[data-f="public-back"],[data-f="friends-back"],[data-post-profile-back],[data-profile-back],[data-nav]', view);
   if (back) return () => back.click();
@@ -1045,35 +1045,81 @@ function edgeBackAction() {
   return null;
 }
 function initEdgeBack() {
-  let gesture = null;
+  let gesture = null, settling = false;
   const app = $('#app');
+  const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reset = (current) => {
+    current.target.style.translate = '';
+    current.target.classList.remove('edge-back-dragging');
+  };
+  const settle = (current, commit = false) => {
+    if (!current) return;
+    const { target, distance = 0 } = current;
+    if (reduced() || !distance) { reset(current); if (commit) current.back(); return; }
+    if (!commit) {
+      settling = true;
+      const animation = target.animate([{ translate: `${distance}px 0` }, { translate: '0 0' }], { duration: 180, easing: 'cubic-bezier(.2,.8,.2,1)' });
+      target.style.translate = '';
+      animation.finished.catch(() => {}).finally(() => { reset(current); settling = false; });
+      return;
+    }
+    // Снимок уезжает поверх уже открытого предыдущего экрана, сохраняя его состояние.
+    const rect = target.getBoundingClientRect(), bounds = app.getBoundingClientRect();
+    const preview = target.cloneNode(true);
+    preview.removeAttribute('id');
+    $$('[id]', preview).forEach(node => node.removeAttribute('id'));
+    preview.classList.remove('view', 'on', 'edge-back-dragging');
+    preview.classList.add('edge-back-preview');
+    preview.inert = true; preview.setAttribute('aria-hidden', 'true');
+    Object.assign(preview.style, { left: `${rect.left - bounds.left - distance}px`, top: `${rect.top - bounds.top}px`, right: 'auto', bottom: 'auto', width: `${rect.width}px`, height: `${rect.height}px`, maxHeight: 'none', margin: '0', transform: 'none', translate: `${distance}px 0`, animation: 'none' });
+    app.appendChild(preview);
+    const originals = [target, ...$$('*', target)], copies = [preview, ...$$('*', preview)];
+    originals.forEach((node, i) => { copies[i].scrollTop = node.scrollTop; copies[i].scrollLeft = node.scrollLeft; if (node.matches('input,textarea,select')) copies[i].value = node.value; });
+    reset(current);
+    settling = true;
+    try { current.back(); }
+    catch (error) { preview.remove(); settling = false; throw error; }
+    const animation = preview.animate([{ translate: `${distance}px 0` }, { translate: `${bounds.width}px 0` }], { duration: 220, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'forwards' });
+    animation.finished.catch(() => {}).finally(() => { preview.remove(); settling = false; });
+  };
   app.addEventListener('touchstart', (e) => {
+    if (gesture) settle(gesture);
     gesture = null;
-    if (e.touches.length !== 1 || e.touches[0].clientX > 24 || e.target.closest('input,textarea,select,[contenteditable]')) return;
-    const back = edgeBackAction();
-    if (back) gesture = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: performance.now(), back, horizontal: false };
+    if (settling || e.touches.length !== 1 || e.touches[0].clientX > 24 || e.target.closest('input,textarea,select,[contenteditable]')) return;
+    const back = edgeBackAction(), target = !$('#sheet').hidden ? $('#sheet') : $('.view.on');
+    if (back) gesture = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: performance.now(), back, target, horizontal: false, distance: 0 };
   }, { passive: true });
   app.addEventListener('touchmove', (e) => {
     if (!gesture) return;
-    if (e.touches.length !== 1) { gesture = null; return; }
+    if (e.touches.length !== 1) { settle(gesture); gesture = null; return; }
     const dx = e.touches[0].clientX - gesture.x, dy = e.touches[0].clientY - gesture.y;
     if (!gesture.horizontal) {
       if ((Math.abs(dy) > 12 && Math.abs(dy) >= dx) || dx < -12) { gesture = null; return; }
       if (dx > 12 && dx > Math.abs(dy) * 1.5) gesture.horizontal = true;
     }
-    if (gesture.horizontal && e.cancelable) e.preventDefault();
+    if (gesture.horizontal) {
+      if (e.cancelable) e.preventDefault();
+      if (!reduced()) {
+        gesture.distance = Math.max(0, Math.min(dx, app.clientWidth));
+        gesture.target.classList.add('edge-back-dragging');
+        gesture.target.style.translate = `${gesture.distance}px 0`;
+      }
+    }
   }, { passive: false });
   app.addEventListener('touchend', (e) => {
     const current = gesture; gesture = null;
-    if (!current || e.touches.length || !e.changedTouches.length) return;
+    if (!current) return;
+    if (e.touches.length || !e.changedTouches.length) { settle(current); return; }
     const dx = e.changedTouches[0].clientX - current.x, dy = e.changedTouches[0].clientY - current.y;
     const duration = performance.now() - current.time;
-    if (dx < 72 || dx < Math.abs(dy) * 1.5 || duration > 800) return;
-    if (e.cancelable) e.preventDefault();
-    document.activeElement?.blur();
-    current.back();
+    const commit = dx >= 72 && dx >= Math.abs(dy) * 1.5 && duration <= 800;
+    if (commit) {
+      if (e.cancelable) e.preventDefault();
+      document.activeElement?.blur();
+    }
+    settle(current, commit);
   }, { passive: false });
-  app.addEventListener('touchcancel', () => { gesture = null; }, { passive: true });
+  app.addEventListener('touchcancel', () => { settle(gesture); gesture = null; }, { passive: true });
 }
 
 let appStarted = false;
