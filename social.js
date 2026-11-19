@@ -257,9 +257,8 @@ const Social = (() => {
     if (publicProfile) { renderPublicProfile(); return; }
     if (!enabled || !me) { renderSignedOut(); return; }
     el().innerHTML = `
-      <div class="page-head profile-page-title">${profileHistory.length ? `<button class="icon-btn" data-f="public-back" aria-label="Назад">${I.back}</button>` : ''}<h1>Профиль</h1></div>
+      <div class="page-head profile-page-title">${profileHistory.length ? `<button class="icon-btn" data-f="public-back" aria-label="Назад">${I.back}</button>` : ''}<h1>Профиль</h1><button class="profile-menu" data-f="settings" aria-label="Настройки">${ICON.menu}</button></div>
       <div class="p-head profile-hero">
-        <button class="profile-menu" data-f="settings" aria-label="Настройки">${ICON.menu}</button>
         ${avatar(me, 92)}
         <h1>${esc(me.display_name)}</h1>
         <p>@${esc(me.username)}</p>
@@ -405,8 +404,8 @@ const Social = (() => {
   }
   function renderSignedOut() {
     el().innerHTML = `
+      <div class="page-head profile-page-title"><h1>Профиль</h1><button class="profile-menu" data-f="settings" aria-label="Настройки">${ICON.menu}</button></div>
       <div class="p-head profile-hero">
-        <button class="profile-menu" data-f="settings" aria-label="Настройки">${ICON.menu}</button>
         <span class="ava guest" style="width:92px;height:92px">${ICON.person}</span>
         <h1>Гость</h1>
         <p>Прогресс и избранное хранятся на этом телефоне</p>

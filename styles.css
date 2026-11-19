@@ -258,7 +258,7 @@ svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 @media (prefers-reduced-motion:reduce){.rv{opacity:1;transform:none}}
 
 /* ============================ ПРИЛОЖЕНИЕ ============================ */
-#app{position:fixed;inset:0;background:#000;user-select:none;-webkit-user-select:none}
+#app{position:fixed;inset:0;background:#000;touch-action:manipulation;user-select:none;-webkit-user-select:none}
 #app main,#app .view{position:absolute;inset:0}
 .view{display:block;visibility:hidden;pointer-events:none;opacity:0;transform:translateY(8px);transition:opacity .2s ease,transform .24s cubic-bezier(.2,.8,.2,1),visibility 0s linear .24s}
 .view.on{visibility:visible;pointer-events:auto;opacity:1;transform:translateY(0);transition-delay:0s}
@@ -333,7 +333,7 @@ svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .tabbar button.on svg{stroke:var(--gold)}
 
 /* прокручиваемые экраны */
-.scroller{position:absolute;inset:0;overflow-y:auto;background:var(--bg);padding:calc(var(--safe-t) + 26px) 24px calc(var(--tab-h) + 34px);-webkit-overflow-scrolling:touch;user-select:text;-webkit-user-select:text}
+.scroller{touch-action:manipulation;position:absolute;inset:0;overflow-y:auto;background:var(--bg);padding:calc(var(--safe-t) + 26px) 24px calc(var(--tab-h) + 34px);-webkit-overflow-scrolling:touch;user-select:text;-webkit-user-select:text}
 .page-head{margin:6px 2px 20px}
 .page-head h1{font-family:var(--serif);font-size:34px;margin:0}
 .page-head p{margin:4px 0 0;color:var(--muted)}
@@ -410,8 +410,8 @@ svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke
 .ava-btns{display:flex;gap:8px}
 .ava-btns label{cursor:pointer}
 .p-head{display:flex;flex-direction:column;align-items:center;text-align:center;padding:10px 0 22px}
-.profile-page-title{text-align:left;margin:4px 4px 14px}.profile-hero{align-items:center;text-align:center;padding-top:4px}.profile-hero .ava{margin-left:0}.profile-hero h1{margin-top:14px}.profile-hero .pill-btn{align-self:center}
-.profile-menu{position:absolute;top:calc(var(--safe-t) + 14px);right:18px;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line)}.profile-menu svg{width:23px;height:23px}
+.profile-page-title{position:sticky;z-index:8;top:calc(-1 * (var(--safe-t) + 26px));display:flex;align-items:center;gap:12px;min-height:72px;margin:calc(-1 * (var(--safe-t) + 26px)) -24px 18px;padding:calc(var(--safe-t) + 18px) 24px 12px;background:var(--bg)}.profile-page-title h1{flex:1;min-width:0}.profile-hero{align-items:center;text-align:center;padding-top:4px}.profile-hero .ava{margin-left:0}.profile-hero h1{margin-top:14px}.profile-hero .pill-btn{align-self:center}
+.profile-menu{flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line)}.profile-menu svg{width:23px;height:23px}
 .p-head .ava{box-shadow:0 0 0 4px var(--bg),0 0 0 5.5px rgba(233,207,156,.35)}
 .p-head h1{font-family:var(--serif);font-size:27px;margin:16px 0 2px}
 .p-head p{color:var(--muted);margin:0 0 14px;font-size:14.5px}
@@ -671,7 +671,7 @@ a.as-btn,button.as-btn{background:var(--cream);color:var(--ink)}
 
 /* шторка */
 .sheet-backdrop{position:absolute;z-index:40;inset:0;background:rgba(0,0,0,.55);animation:fade .2s}
-.sheet{position:absolute;z-index:41;left:0;right:0;bottom:0;max-height:92%;overflow-y:auto;background:var(--bg-2);border-radius:26px 26px 0 0;padding:10px 18px calc(18px + var(--safe-b));animation:up .25s cubic-bezier(.2,.8,.2,1);box-shadow:0 -10px 40px rgba(0,0,0,.4)}
+.sheet{touch-action:manipulation;position:absolute;z-index:41;left:0;right:0;bottom:0;max-height:92%;overflow-y:auto;background:var(--bg-2);border-radius:26px 26px 0 0;padding:10px 18px calc(18px + var(--safe-b));animation:up .25s cubic-bezier(.2,.8,.2,1);box-shadow:0 -10px 40px rgba(0,0,0,.4)}
 .sheet .grab{display:block;position:relative;width:100%;height:30px;margin:-10px 0 4px;background:none;border:0;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
 .sheet .grab::before{content:'';position:absolute;top:10px;left:50%;transform:translateX(-50%);width:40px;height:5px;border-radius:9px;background:rgba(255,255,255,.22)}
 .sheet .grab:active{cursor:grabbing}.sheet .grab:focus-visible{outline:2px solid var(--gold-2);outline-offset:-2px;border-radius:12px}
@@ -830,7 +830,7 @@ a.as-btn,button.as-btn{background:var(--cream);color:var(--ink)}
 .post-card>footer{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1.15fr) minmax(0,.75fr);gap:4px;margin:0 12px;padding:8px 0 12px;border-top:1px solid rgba(255,255,255,.06)}.post-card>footer button{min-width:0;min-height:44px;border-radius:10px;justify-content:center;font-size:12px;gap:6px;padding:8px 4px;transition:background .15s,color .15s}.post-card>footer button svg{width:18px;height:18px;flex:none}.post-card>footer button[aria-pressed=true]{color:var(--gold-2);background:rgba(212,167,92,.08)}.post-card>footer button[aria-pressed=true] svg{fill:rgba(212,167,92,.2)}.post-card>footer button:active{background:rgba(255,255,255,.06)}.post-card button:disabled{opacity:.45;cursor:wait}.post-comment-count{font-size:11px;font-weight:500;font-variant-numeric:tabular-nums}
 .post-secondary{min-height:44px;padding:11px 18px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--text);font-size:14px}.post-back{display:block;text-align:left;min-height:44px;width:100%;color:var(--muted);font-size:14px;margin-bottom:10px}.post-loading{text-align:center;color:var(--muted);font-size:13px;padding:16px}.post-load-error{text-align:center;padding:24px 16px;border:1px solid var(--line);border-radius:16px;color:var(--muted);font-size:14px;line-height:1.6}#post-pagination{text-align:center;padding-bottom:16px}
 .post-skeleton{padding:16px;border:1px solid var(--line);border-radius:20px}.post-skeleton i{display:block;height:16px;margin-bottom:16px;width:70%;border-radius:8px;background:rgba(255,255,255,.07);animation:post-pulse 1.4s ease-in-out infinite}.post-skeleton i:first-child{width:44%;height:32px}.post-skeleton i:nth-child(2){width:100%;height:240px}.post-skeleton i:last-child{margin:0}@keyframes post-pulse{50%{opacity:.35}}
-.post-counter{align-self:flex-end;margin-top:-10px;color:var(--faint);font-size:11px;font-variant-numeric:tabular-nums}.post-discussion-ref{font-family:var(--serif);font-style:italic;color:var(--gold-2);font-size:14px;margin:0 0 16px}.post-comment-head{display:flex;align-items:center;gap:8px;min-width:0}.post-comment-head b{color:var(--text);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}.post-comment-head small{color:var(--faint);font-size:10px;margin-left:auto;white-space:nowrap}.post-comment-head button{flex:none;min-height:44px;padding:8px;color:var(--muted);font-size:11px}.post-comment p{margin:6px 0 4px 40px}.post-comments-empty{padding:16px 0 24px;color:var(--muted);font-size:14px;line-height:1.6}#post-comments-more{padding:8px 0 16px}#post-comment-form{padding-top:16px;border-top:1px solid var(--line);margin-top:8px}
+.post-counter{align-self:flex-end;margin-top:2px;line-height:1.4;color:var(--faint);font-size:11px;font-variant-numeric:tabular-nums}.post-discussion-ref{font-family:var(--serif);font-style:italic;color:var(--gold-2);font-size:14px;margin:0 0 16px}.post-comment-head{display:flex;align-items:center;gap:8px;min-width:0}.post-comment-head b{color:var(--text);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}.post-comment-head small{color:var(--faint);font-size:10px;margin-left:auto;white-space:nowrap}.post-comment-head button{flex:none;min-height:44px;padding:8px;color:var(--muted);font-size:11px}.post-comment p{margin:6px 0 4px 40px}.post-comments-empty{padding:16px 0 24px;color:var(--muted);font-size:14px;line-height:1.6}#post-comments-more{padding:8px 0 16px}#post-comment-form{padding-top:16px;border-top:1px solid var(--line);margin-top:8px}
 .post-sheet-close{display:grid;place-items:center;width:44px;height:44px;margin:0 0 8px auto;border-radius:50%;background:rgba(255,255,255,.06);color:var(--muted);font-size:24px;line-height:1}.post-sheet-close:focus-visible{outline:2px solid var(--gold-2)}
 @media(max-width:1023px){.sheet .post-sheet-close{display:none}}
 .post-form textarea{font-size:16px;line-height:1.5}.post-form input{font-size:16px}#posts button:focus-visible,.post-form button:focus-visible{outline:2px solid var(--gold-2);outline-offset:2px}
@@ -878,3 +878,5 @@ html[data-feed-background="color"] #feed .scrim{background:rgba(0,0,0,.48)}
 
 /* На iPhone поля мельче 16px вызывают автоматическое приближение при вводе. */
 @media(max-width:1023px){#app input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),#app textarea,#app select{font-size:16px}}
+
+@media(min-width:1024px){.profile-page-title{top:-44px;margin:-44px 0 18px;padding:30px 0 12px}}

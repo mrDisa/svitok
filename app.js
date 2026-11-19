@@ -1003,12 +1003,17 @@ function initSW() {
 /* ======================================================================
    ВКЛАДКИ И ЗАПУСК
    ====================================================================== */
-function openTab(name) {
+const tabHistory = [];
+function openTab(name, { remember = true } = {}) {
   const cur = $('.view.on')?.dataset.view;
   if (cur === name) {
     if (name === 'feed') feedEl().scrollTo({ top: 0, behavior: 'smooth' });
     if (name === 'bible' && bibleRoute.view !== 'books') renderBooks();
     return;
+  }
+  if (remember && cur) {
+    if (tabHistory.at(-1) === name) tabHistory.pop();
+    else { tabHistory.push(cur); if (tabHistory.length > 30) tabHistory.shift(); }
   }
   closeSheet();
   if (name !== 'bible') clearSelection();
@@ -1027,6 +1032,48 @@ function openTab(name) {
   if (name === 'posts') Posts.render();
   if (name === 'more') { renderMore(); Reminders.refresh().then((changed) => { if (changed && $('[data-view=more]').classList.contains('on')) renderMore(); }); }
   if (name === 'profile') { Social.render(); Comments.load(); }
+}
+
+// Свайп от левого края повторяет доступную кнопку «Назад» текущего экрана.
+function edgeBackAction() {
+  if (!$('#onb').hidden || !$('#dw').hidden) return null;
+  if (!$('#sheet').hidden) return () => closeSheet();
+  const view = $('.view.on');
+  const back = $('[data-chat-back],[data-f="public-back"],[data-f="friends-back"],[data-post-profile-back],[data-profile-back],[data-nav]', view);
+  if (back) return () => back.click();
+  if (tabHistory.length) return () => openTab(tabHistory.pop(), { remember: false });
+  return null;
+}
+function initEdgeBack() {
+  let gesture = null;
+  const app = $('#app');
+  app.addEventListener('touchstart', (e) => {
+    gesture = null;
+    if (e.touches.length !== 1 || e.touches[0].clientX > 24 || e.target.closest('input,textarea,select,[contenteditable]')) return;
+    const back = edgeBackAction();
+    if (back) gesture = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: performance.now(), back, horizontal: false };
+  }, { passive: true });
+  app.addEventListener('touchmove', (e) => {
+    if (!gesture) return;
+    if (e.touches.length !== 1) { gesture = null; return; }
+    const dx = e.touches[0].clientX - gesture.x, dy = e.touches[0].clientY - gesture.y;
+    if (!gesture.horizontal) {
+      if ((Math.abs(dy) > 12 && Math.abs(dy) >= dx) || dx < -12) { gesture = null; return; }
+      if (dx > 12 && dx > Math.abs(dy) * 1.5) gesture.horizontal = true;
+    }
+    if (gesture.horizontal && e.cancelable) e.preventDefault();
+  }, { passive: false });
+  app.addEventListener('touchend', (e) => {
+    const current = gesture; gesture = null;
+    if (!current || e.touches.length || !e.changedTouches.length) return;
+    const dx = e.changedTouches[0].clientX - current.x, dy = e.changedTouches[0].clientY - current.y;
+    const duration = performance.now() - current.time;
+    if (dx < 72 || dx < Math.abs(dy) * 1.5 || duration > 800) return;
+    if (e.cancelable) e.preventDefault();
+    document.activeElement?.blur();
+    current.back();
+  }, { passive: false });
+  app.addEventListener('touchcancel', () => { gesture = null; }, { passive: true });
 }
 
 let appStarted = false;
@@ -1052,6 +1099,7 @@ async function startApp() {
   initBible();
   initSaved();
   initMore();
+  initEdgeBack();
   const socialReady = Social.init();
   Chats.init();
   Posts.init();
