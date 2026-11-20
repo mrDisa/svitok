@@ -642,7 +642,44 @@ const bibleEl = () => $('#bible');
 let bibleRoute = { view: 'books' };
 let selected = new Set();
 
+// Открытие вложенных экранов Библии использует те же слои, что и интерактивный возврат.
+let bibleTransition = null;
+function animateBibleRoute(next) {
+  if (JSON.stringify(bibleRoute) === JSON.stringify(next)) return;
+  bibleTransition?.();
+  const el = bibleEl(), view = el.closest('.view');
+  if (!view?.classList.contains('on') || !el.childElementCount || view.classList.contains('edge-back-restored') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const saved = edgeSnapshot(el), previous = saved.copy;
+  previous.removeAttribute('id');
+  $$('[id]', previous).forEach(node => node.removeAttribute('id'));
+  previous.inert = true; previous.setAttribute('aria-hidden', 'true');
+  previous.classList.add('bible-previous');
+  el.before(previous);
+  [previous, ...$$('*', previous)].forEach((node, i) => { node.scrollTop = saved.scroll[i][0]; node.scrollLeft = saved.scroll[i][1]; });
+  const backwards = next.view === 'books' || (bibleRoute.view === 'chapter' && next.view !== 'chapter');
+  const width = el.clientWidth;
+  view.classList.add('bible-transitioning');
+  el.classList.add('bible-opening');
+  const timing = {duration: 340, easing: 'cubic-bezier(.22,.72,.16,1)', fill: 'both'};
+  // Создаём анимацию до замены HTML: первый кадр уже находится у края экрана.
+  const animations = [
+    el.animate([{translate: `${backwards ? -width * .22 : width}px 0`}, {translate: '0 0'}], timing),
+    previous.animate([{translate: '0 0'}, {translate: `${backwards ? width : -width * .22}px 0`}], timing),
+  ];
+  if (backwards) { previous.classList.add('bible-previous-front'); }
+  const cleanup = () => {
+    animations.forEach(animation => animation.cancel());
+    previous.remove(); el.classList.remove('bible-opening'); view.classList.remove('bible-transitioning');
+    if (bibleTransition === cleanup) bibleTransition = null;
+  };
+  bibleTransition = cleanup;
+  Promise.all(animations.map(animation => animation.finished.catch(() => {}))).then(() => {
+    if (bibleTransition === cleanup) cleanup();
+  });
+}
+
 function renderBooks() {
+  animateBibleRoute({ view: 'books' });
   bibleRoute = { view: 'books' };
   clearSelection();
   const book = (b, i) => `<button data-book="${i}">${esc(b.n)}<small>${b.c} ${plural(b.c, 'глава', 'главы', 'глав')}</small></button>`;
@@ -663,10 +700,11 @@ function renderBooks() {
 }
 
 function renderChapters(b) {
-  bibleRoute = { view: 'chapters', b };
   clearSelection();
   const bk = BOOKS[b];
   if (bk.c === 1) { openChapter(b, 1); return; }
+  animateBibleRoute({ view: 'chapters', b });
+  bibleRoute = { view: 'chapters', b };
   bibleEl().innerHTML = `
     <div class="sub-head"><button class="icon-btn" data-nav="books" aria-label="Назад">${I.back}</button><h1>${esc(bk.n)}</h1></div>
     <div class="ch-grid">${Array.from({ length: bk.c }, (_, i) => `<button data-ch="${i + 1}">${i + 1}</button>`).join('')}</div>`;
@@ -674,6 +712,7 @@ function renderChapters(b) {
 }
 
 async function openChapter(b, c, hl) {
+  animateBibleRoute({ view: 'chapter', b, c });
   bibleRoute = { view: 'chapter', b, c };
   clearSelection();
   const bk = BOOKS[b];
@@ -1055,6 +1094,7 @@ function edgeBackAction() {
   if (!$('#onb').hidden || !$('#dw').hidden) return null;
   if (!$('#sheet').hidden) return () => closeSheet(false);
   const view = $('.view.on');
+  if (view?.classList.contains('bible-transitioning')) return null;
   const back = $(EDGE_BACK, view);
   if (back && edgeParents.get(view)?.length) return () => back.click();
   return null;

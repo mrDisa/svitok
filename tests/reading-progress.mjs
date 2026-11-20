@@ -27,7 +27,7 @@ test('карточка активного плана открывает обзо
   const books=JSON.parse(fs.readFileSync(new URL('../data/books.json',import.meta.url),'utf8'));
   const ctx=vm.createContext({
     store:{get:(k,d)=>data.get(k)??d,set:(k,v)=>data.set(k,v)}, BOOKS:books,
-    bibleEl:()=>root,bibleRoute:{},esc:String,plural:()=>'',I:{back:'',next:''},$:()=>null,
+    bibleEl:()=>root,bibleRoute:{},animateBibleRoute(){},esc:String,plural:()=>'',I:{back:'',next:''},$:()=>null,
     openChapter:(...args)=>opened.push(args),chLabel:()=>'',
   });
   vm.runInContext(source+'\nthis.plans=Plans;',ctx);

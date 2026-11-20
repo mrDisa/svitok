@@ -94,6 +94,7 @@ const Plans = (() => {
   function renderPlan(id) {
     const d = byId(id);
     if (!d) return;
+    animateBibleRoute({ view: 'plan', id });
     bibleRoute = { view: 'plan', id };
     const p = progress(d);
     const list = days(d);
