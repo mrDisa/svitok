@@ -114,9 +114,10 @@ const Chats = (() => {
     const cachedJSON = JSON.stringify(cached);
     if (cached.length) { chats = cached; chats.forEach((c) => { if (c.members) memberCache.set(c.id, c.members); }); await drawList(); }
     else el().innerHTML = `<div class="page-head"><h1>Чаты</h1><p>Загружаем переписки…</p></div><div class="chat-loading"><i></i><i></i><i></i></div>`;
-    try { await load(); if (requestedChat) { const id = requestedChat; requestedChat = null; await open(id); } else if (!cached.length || JSON.stringify(chats) !== cachedJSON) await drawList(); } catch (e) { if (!cached.length) el().innerHTML = '<div class="empty">Не удалось загрузить чаты.<br>Проверьте интернет и попробуйте снова.</div>'; }
+    try { await load(); if (requestedChat) { const id = requestedChat; requestedChat = null; await drawList(); await open(id); } else if (!cached.length || JSON.stringify(chats) !== cachedJSON) await drawList(); } catch (e) { if (!cached.length) el().innerHTML = '<div class="empty">Не удалось загрузить чаты.<br>Проверьте интернет и попробуйте снова.</div>'; }
   }
   async function drawList() {
+    edgeParents.delete(el());
     const rows = await Promise.all(chats.map(async (c) => ({ c, ms: await members(c.id) })));
     el().innerHTML = `<div class="page-head"><h1>Чаты</h1><p>Только вы и ваши друзья</p></div><button class="chat-new" data-chat-new>${plus}Новый чат</button><div class="chat-list">${rows.length ? rows.map(({c,ms}) => {
       const other = ms.find((x) => x.user_id !== me().id)?.p || me(); const unread = c.last && (!c.last_read_at || new Date(c.last.created_at) > new Date(c.last_read_at)) && c.last.sender !== me().id;
@@ -127,7 +128,7 @@ const Chats = (() => {
     const uid = me()?.id;
     const c = chats.find((v) => v.id === id); if (!c || !uid) return;
     const draft = active?.id === id ? $('input', el())?.value || '' : '';
-    if (active?.id !== id) replyTo = null;
+    if (active?.id !== id) { replyTo = null; if ($('[data-chat-open]', el()) || $('.chat-list', el())) rememberEdgeParent(el()); }
     active = c; el().innerHTML = `<div class="chat-loading"><i></i><i></i><i></i></div>`; const ms = await members(id); const name = title(c, ms);
     const { data, error } = await sb().from('chat_messages').select('*').eq('chat_id', id).order('created_at', { ascending:false }).limit(50);
     if (error) throw error;

@@ -1003,17 +1003,30 @@ function initSW() {
 /* ======================================================================
    ВКЛАДКИ И ЗАПУСК
    ====================================================================== */
-const tabHistory = [];
-function openTab(name, { remember = true } = {}) {
+// Снимки родительских экранов принадлежат вложенной навигации, а не истории вкладок.
+const edgeParents = new WeakMap();
+function edgeSnapshot(target) {
+  const copy = target.cloneNode(true);
+  const originals = [target, ...$$('*', target)], copies = [copy, ...$$('*', copy)];
+  return { copy, scroll: originals.map((node, i) => {
+    if (node.matches('input,textarea,select')) copies[i].value = node.value;
+    return [node.scrollTop, node.scrollLeft];
+  }) };
+}
+function rememberEdgeParent(child, parent = child) {
+  if (!child || !parent) return;
+  const stack = child === parent ? (edgeParents.get(child) || []) : [];
+  stack.push(edgeSnapshot(parent));
+  if (stack.length > 20) stack.shift();
+  edgeParents.set(child, stack);
+}
+const EDGE_BACK = '[data-chat-back],[data-f="public-back"],[data-f="friends-back"],[data-post-profile-back],[data-profile-back],[data-nav]';
+function openTab(name) {
   const cur = $('.view.on')?.dataset.view;
   if (cur === name) {
     if (name === 'feed') feedEl().scrollTo({ top: 0, behavior: 'smooth' });
     if (name === 'bible' && bibleRoute.view !== 'books') renderBooks();
     return;
-  }
-  if (remember && cur) {
-    if (tabHistory.at(-1) === name) tabHistory.pop();
-    else { tabHistory.push(cur); if (tabHistory.length > 30) tabHistory.shift(); }
   }
   closeSheet();
   if (name !== 'bible') clearSelection();
@@ -1039,18 +1052,33 @@ function edgeBackAction() {
   if (!$('#onb').hidden || !$('#dw').hidden) return null;
   if (!$('#sheet').hidden) return () => closeSheet(false);
   const view = $('.view.on');
-  const back = $('[data-chat-back],[data-f="public-back"],[data-f="friends-back"],[data-post-profile-back],[data-profile-back],[data-nav]', view);
-  if (back) return () => back.click();
-  if (tabHistory.length) return () => openTab(tabHistory.pop(), { remember: false });
+  const back = $(EDGE_BACK, view);
+  if (back && edgeParents.get(view)?.length) return () => back.click();
   return null;
 }
 function initEdgeBack() {
   let gesture = null, settling = false;
   const app = $('#app');
+  // Сохраняем родителя до того, как обработчик кнопки заменит его содержимое.
+  app.addEventListener('click', e => {
+    const view = e.target.closest('.view');
+    if (!view || e.target.closest('#sheet')) return;
+    if (e.target.closest(EDGE_BACK)) {
+      const stack = edgeParents.get(view);
+      if (e.target.closest('[data-nav="books"]')) edgeParents.delete(view);
+      else stack?.pop();
+      return;
+    }
+    if (e.target.closest('[data-book],[data-ch],[data-continue],[data-plan],[data-plan-read],[data-plan-day],[data-f="friends"],[data-f="friend-profile"]')) rememberEdgeParent(view);
+    if (e.target.closest('[data-author-posts]') && view.dataset.view === 'profile') rememberEdgeParent($('#posts'), view);
+    const profileChild = e.target.closest('[data-f="settings"],[data-f="saved"],[data-f="liked"]');
+    if (profileChild) rememberEdgeParent($(`[data-view="${profileChild.dataset.f === 'settings' ? 'more' : 'saved'}"]`), view);
+  }, true);
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const reset = (current) => {
     current.target.style.translate = '';
     current.target.classList.remove('edge-back-dragging');
+    current.underlay?.remove();
   };
   const settle = (current, commit = false) => {
     if (!current) return;
@@ -1075,17 +1103,22 @@ function initEdgeBack() {
     app.appendChild(preview);
     const originals = [target, ...$$('*', target)], copies = [preview, ...$$('*', preview)];
     originals.forEach((node, i) => { copies[i].scrollTop = node.scrollTop; copies[i].scrollLeft = node.scrollLeft; if (node.matches('input,textarea,select')) copies[i].value = node.value; });
+    const underlay = current.underlay; current.underlay = null;
     reset(current);
     settling = true;
     try { current.back(); }
-    catch (error) { preview.remove(); settling = false; throw error; }
+    catch (error) { preview.remove(); underlay?.remove(); settling = false; throw error; }
     const animation = preview.animate([{ translate: `${distance}px 0` }, { translate: `${bounds.width}px 0` }], { duration: 220, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'forwards' });
-    animation.finished.catch(() => {}).finally(() => { preview.remove(); settling = false; });
+    animation.finished.catch(() => {}).finally(() => {
+      const parent = $('.view.on');
+      if (underlay && parent) parent.scrollTop = underlay.scrollTop;
+      preview.remove(); underlay?.remove(); settling = false;
+    });
   };
   app.addEventListener('touchstart', (e) => {
     if (gesture) settle(gesture);
     gesture = null;
-    if (settling || e.touches.length !== 1 || e.touches[0].clientX > 24 || e.target.closest('input,textarea,select,[contenteditable]')) return;
+    if (settling || e.touches.length !== 1 || e.touches[0].clientX - app.getBoundingClientRect().left > 24 || e.target.closest('input,textarea,select,[contenteditable]')) return;
     const back = edgeBackAction(), target = !$('#sheet').hidden ? $('#sheet') : $('.view.on');
     if (back) gesture = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: performance.now(), back, target, horizontal: false, distance: 0 };
   }, { passive: true });
@@ -1101,6 +1134,20 @@ function initEdgeBack() {
       if (e.cancelable) e.preventDefault();
       if (!reduced()) {
         gesture.distance = Math.max(0, Math.min(dx, app.clientWidth));
+        if (!gesture.underlay && gesture.target.classList.contains('view')) {
+          const saved = edgeParents.get(gesture.target)?.at(-1);
+          if (saved) {
+            const underlay = saved.copy.cloneNode(true);
+            underlay.removeAttribute('id');
+            $$('[id]', underlay).forEach(node => node.removeAttribute('id'));
+            underlay.classList.remove('view', 'on');
+            underlay.classList.add('edge-back-underlay');
+            underlay.inert = true; underlay.setAttribute('aria-hidden', 'true');
+            gesture.target.before(underlay);
+            [underlay, ...$$('*', underlay)].forEach((node, i) => { node.scrollTop = saved.scroll[i][0]; node.scrollLeft = saved.scroll[i][1]; });
+            gesture.underlay = underlay;
+          }
+        }
         gesture.target.classList.add('edge-back-dragging');
         gesture.target.style.translate = `${gesture.distance}px 0`;
       }
@@ -1112,7 +1159,7 @@ function initEdgeBack() {
     if (e.touches.length || !e.changedTouches.length) { settle(current); return; }
     const dx = e.changedTouches[0].clientX - current.x, dy = e.changedTouches[0].clientY - current.y;
     const duration = performance.now() - current.time;
-    const commit = dx >= 72 && dx >= Math.abs(dy) * 1.5 && duration <= 800;
+    const commit = dx >= 72 && dx >= Math.abs(dy) * 1.5 && (dx >= app.clientWidth * .32 || dx / Math.max(duration, 1) >= .45);
     if (commit) {
       if (e.cancelable) e.preventDefault();
       document.activeElement?.blur();

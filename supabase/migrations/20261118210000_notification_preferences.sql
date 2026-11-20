@@ -7,7 +7,7 @@ alter table public.push_subs
   add column if not exists comeback_sent date;
 
 -- Очередь создаётся сервером в той же транзакции, что и сообщение.
-create table public.chat_push_queue (
+create table if not exists public.chat_push_queue (
   message_id bigint not null references public.chat_messages(id) on delete cascade,
   endpoint text not null references public.push_subs(endpoint) on delete cascade,
   created_at timestamptz not null default now(),
@@ -28,6 +28,7 @@ begin
 end;
 $$;
 revoke all on function public.enqueue_chat_push() from public, anon, authenticated;
+drop trigger if exists chat_message_push on public.chat_messages;
 create trigger chat_message_push after insert on public.chat_messages
 for each row execute function public.enqueue_chat_push();
 

@@ -37,7 +37,7 @@ const Reminders = (() => {
     const prefs = preferences();
     const support = pushSupport();
     const ready = state().delivery;
-    return [['messages', 'Сообщения', 'Новые сообщения в личных и групповых чатах'], ['comeback', 'Серия и план', 'В 20:00, если дневная цель или план ещё не выполнены']].map(([key, title, hint]) => `<div class="row"><div class="grow">${title}<small>${hint}</small></div><button class="switch${prefs[key] ? ' on' : ''}" data-notify-kind="${key}" role="switch" aria-checked="${prefs[key]}" aria-label="${title}"><i></i></button></div>`).join('') + (!ready ? `<button class="row" data-notify-activate${support.ok && !setupPromise ? '' : ' disabled'}><div class="grow">${setupPromise ? 'Подключаем уведомления…' : 'Разрешить push-уведомления'}<small data-push-status role="status">${esc(support.ok ? setupLabel() : support.why)}</small></div>${I.next}</button>` : '');
+    return [['messages', 'Сообщения', 'Новые сообщения в личных и групповых чатах'], ['comeback', 'Серия и план', 'Днём в случайное время, если цель или план ещё не выполнены']].map(([key, title, hint]) => `<div class="row"><div class="grow">${title}<small>${hint}</small></div><button class="switch${prefs[key] ? ' on' : ''}" data-notify-kind="${key}" role="switch" aria-checked="${prefs[key]}" aria-label="${title}"><i></i></button></div>`).join('') + (!ready ? `<button class="row" data-notify-activate${support.ok && !setupPromise ? '' : ' disabled'}><div class="grow">${setupPromise ? 'Подключаем уведомления…' : 'Разрешить push-уведомления'}<small data-push-status role="status">${esc(support.ok ? setupLabel() : support.why)}</small></div>${I.next}</button>` : '');
   }
   async function syncPreferences() {
     if (!pushSupport().ok) return;

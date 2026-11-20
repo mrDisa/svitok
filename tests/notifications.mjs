@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { comeback } from '../supabase/functions/notify/comeback.ts';
+import { comeback, reminderDue, reminderMinute } from '../supabase/functions/notify/comeback.ts';
 
 const now = Date.parse('2026-11-18T17:00:00Z'); // 20:00 Москва
 const completed = { goal: 10, day: { d: '2026-11-18', n: 10, done: true } };
@@ -89,7 +89,7 @@ function server(overrides = {}) {
   const ctx = vm.createContext({
     Deno: { env: { get: () => 'https://example.com/' }, serve: fn => { handler = fn; } },
     webpush: { setVapidDetails() {}, sendNotification: async (sub, payload) => sent.push(JSON.parse(payload)) },
-    createClient: () => admin, comeback, Response, Date, URL, setTimeout: fn => { fn(); },
+    createClient: () => admin, comeback, reminderDue, Response, Date, URL, setTimeout: fn => { fn(); },
   });
   vm.runInContext(serverSource, ctx);
   return {
@@ -281,4 +281,22 @@ test('ошибка кэша шрифта не блокирует установ�
   await completion;
   assert.equal(installed,true);
   assert.ok(cached.includes('app.js'));
+});
+
+test('напоминание выбирает стабильный дневной слот для устройства и даты', () => {
+  const slots = new Set(Array.from({length: 50}, (_, i) => reminderMinute('endpoint-' + i, '2026-11-20')));
+  assert.ok(slots.size > 10);
+  for (const slot of slots) { assert.ok(slot >= 660 && slot <= 1245); assert.equal(slot % 15, 0); }
+  const slot = reminderMinute('device', '2026-11-20');
+  const midnight = Date.parse('2026-11-19T21:00:00Z');
+  assert.equal(reminderDue('device', '2026-11-20', 180, midnight + (slot - 1) * 60000), false);
+  assert.equal(reminderDue('device', '2026-11-20', 180, midnight + slot * 60000), true);
+  assert.equal(reminderDue('device', '2026-11-20', 180, midnight + 1260 * 60000), false);
+  assert.equal(reminderMinute('device', '2026-11-20'), slot);
+});
+test('продлённая сегодня серия не вызывает повторного напоминания', () => {
+  assert.equal(comeback({streak:{last:'2026-11-18',count:4}}, 180, now), null);
+  assert.match(comeback({streak:{last:'2026-11-17',count:4}}, 180, now).body, /серию/);
+  assert.equal(comeback({streak:{last:'2026-11-10',count:4}}, 180, now), null);
+  assert.match(comeback({streak:{last:'2026-11-17',count:4}, plans:{john21:{started:now,done:[]}}},180,now).title, /План и серия/);
 });

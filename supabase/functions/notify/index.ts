@@ -10,7 +10,7 @@
 //
 // Секреты: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, CRON_SECRET, TELEGRAM_BOT_TOKEN, APP_URL.
 
-import { comeback } from './comeback.ts';
+import { comeback, reminderDue } from './comeback.ts';
 import webpush from 'npm:web-push@3.6.7';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -129,7 +129,7 @@ async function run() {
   ]);
   for (const s of subs ?? []) {
     const key = dateKey(s.tz_offset);
-    if (s.comeback_enabled && localParts(s.tz_offset).h === 20 && s.comeback_sent !== key) {
+    if (s.comeback_enabled && reminderDue(s.endpoint, key, s.tz_offset) && s.comeback_sent !== key) {
       let progress = s.progress;
       if (s.user_id) {
         const { data, error } = await admin.from('user_state').select('data').eq('user_id', s.user_id).maybeSingle();
