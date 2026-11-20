@@ -15,7 +15,7 @@
 1. После предыдущих миграций применить `supabase/migrations/20261118210000_notification_preferences.sql` и затем `supabase/migrations/20261118220000_foreground_message_delivery.sql` в целевом Supabase.
 2. Развернуть Edge Function: `supabase functions deploy notify --project-ref mkermmysumhnwsrndlio`.
 3. Проверить существующее расписание вызова `notify` с `action: run` и `x-cron-secret` каждые 15 минут (секреты описаны в README).
-4. После серверного обновления публиковать клиентские файлы, включая `sw.js` версии v74.
+4. После серверного обновления публиковать клиентские файлы, включая `sw.js` версии v75.
 
 Триггер БД помещает сообщения в закрытую RLS-очередь. Клиент после сохранения сообщения
 просит обработать его очередь по ID; текст и получатели определяются на сервере.
