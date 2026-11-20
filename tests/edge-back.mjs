@@ -44,7 +44,7 @@ function navigation() {
     get clicks(){return clicks;}, get clones(){return clones;},
     advance(ms){clock += ms;},
     flush(){const batch=[...frames.values()];frames.clear();batch.forEach(fn=>fn());},
-    start(){ handlers.touchstart(event(5)); },
+    start(x=5){ handlers.touchstart(event(x)); },
     move(x,y=100){ clock += 16; handlers.touchmove(event(x,y)); },
     end(x){const e=event(x);e.touches=[];handlers.touchend(e);},
     cancel(){handlers.touchcancel();},
@@ -59,7 +59,7 @@ test('корневой экран не сворачивается даже пр�
 });
 test('свайп показывает родителя во время движения; отмена сохраняет чат', async () => {
   const n = navigation();n.view.scrollTop=140;n.api.rememberEdgeParent(n.view);
-  n.view.text='Открытый чат';n.setBack();n.start();n.move(110);
+  n.view.text='Открытый чат';n.setBack();n.start();n.move(110);n.flush();
   assert.equal(n.nodes[0].text,'Список чатов');assert.equal(n.nodes[0].scrollTop,140);
   assert.equal(n.nodes[0].classList.contains('view'),false);
   assert.equal(n.view.text,'Открытый чат');assert.equal(n.clicks,0);
@@ -69,7 +69,7 @@ test('свайп показывает родителя во время движ�
 });
 test('завершение жеста возвращает родителя и удаляет снимки анимации', async () => {
   const n=navigation();n.api.rememberEdgeParent(n.view);n.view.text='Открытый чат';n.setBack();
-  n.start();n.move(180);const clones=n.clones;n.end(180);assert.equal(n.clicks,0);assert.equal(n.clones,clones);
+  n.start();n.move(180);n.flush();const clones=n.clones;n.end(180);assert.equal(n.clicks,0);assert.equal(n.clones,clones);
   await n.finish();assert.equal(n.clicks,1);assert.equal(n.view.text,'Список чатов');assert.equal(n.nodes.length,0);
   assert.equal(n.api.edgeParents.get(n.view).length,0);
 });
@@ -77,7 +77,7 @@ test('завершение жеста возвращает родителя и �
 test('движения объединяются в кадр, возврат пальца отменяет переход', async () => {
   const n=navigation();n.api.rememberEdgeParent(n.view);n.view.text='Открытый чат';n.setBack();
   n.start();n.move(200);n.move(170);
-  assert.equal(n.view.style.translate,'0px 0');
+  assert.equal(n.view.style.translate,undefined);
   n.flush();assert.equal(n.view.style.translate,'165px 0');
   n.end(170);await n.finish();
   assert.equal(n.clicks,0);assert.equal(n.view.text,'Открытый чат');assert.equal(n.nodes.length,0);
@@ -95,4 +95,9 @@ test('чат сохраняет родителя на внешней view, да�
   n.start();n.move(180);n.end(180);await n.finish();assert.equal(n.clicks,1);
   n.api.rememberEdgeParent(inner);n.api.clearEdgeParents(inner);
   assert.equal(n.api.edgeBackAction(),null);
+});
+
+test('возврат начинается из середины экрана', async () => {
+  const n=navigation();n.api.rememberEdgeParent(n.view);n.setBack();
+  n.start(160);n.move(340);n.end(340);await n.finish();assert.equal(n.clicks,1);
 });

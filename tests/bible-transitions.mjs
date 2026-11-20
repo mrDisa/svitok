@@ -7,6 +7,7 @@ function screen({reduced=false,swiping=false}={}) {
   const animations=[],ghosts=[];
   class Node {
     constructor(){this.classes=new Set();this.scrollTop=80;this.scrollLeft=0;this.clientWidth=390;this.childElementCount=1;this.style={};this.classList={add:(...xs)=>xs.forEach(x=>this.classes.add(x)),remove:(...xs)=>xs.forEach(x=>this.classes.delete(x)),contains:x=>this.classes.has(x)};}
+    cloneNode(){return new Node();}
     removeAttribute(){} setAttribute(){}
     before(n){ghosts.push(n);}
     remove(){const i=ghosts.indexOf(this);if(i>=0)ghosts.splice(i,1);}
@@ -20,6 +21,7 @@ function screen({reduced=false,swiping=false}={}) {
   });
   const source=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8');
   vm.runInContext(source.slice(source.indexOf('let bibleTransition ='),source.indexOf('function renderBooks()')),ctx);
+  vm.runInContext(source.slice(source.indexOf('let settingsTransition ='),source.indexOf('function openTab(')),ctx);
   return {ctx,el,view,animations,ghosts,
     open(route){ctx.animateBibleRoute(route);ctx.bibleRoute=route;},
     async finish(){animations.forEach(a=>a.finish());for(let i=0;i<8;i++)await Promise.resolve();},
@@ -46,4 +48,11 @@ test('уменьшение движения и завершение свайпа
   for(const options of [{reduced:true},{swiping:true}]){
     const s=screen(options);s.open({view:'plan',id:'john21'});assert.equal(s.animations.length,0);assert.equal(s.ghosts.length,0);
   }
+});
+
+test('настройки открываются поверх сохранённого профиля той же анимацией',async()=>{
+  const s=screen();s.ctx.animateSettingsOpen({copy:s.el,scroll:[[80,0]]},s.view);
+  assert.equal(s.animations[0].keyframes[0].translate,'390px 0');assert.equal(s.ghosts[0].scrollTop,80);
+  assert.equal(s.view.classes.has('settings-opening'),true);
+  await s.finish();assert.equal(s.ghosts.length,0);assert.equal(s.view.classes.has('settings-opening'),false);
 });

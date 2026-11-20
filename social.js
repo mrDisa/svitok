@@ -96,11 +96,33 @@ const Social = (() => {
   };
 
   /* ---------------- данные ---------------- */
+  function restoreCachedIdentity() {
+    // Сессия уже сохраняется SDK. Показываем только кэш того же аккаунта до сетевой проверки.
+    try {
+      const session = JSON.parse(localStorage.getItem('svitok-auth') || 'null');
+      const cached = store.get('profileCache', null);
+      if (session?.user?.id && cached?.id === session.user.id) {
+        user = session.user; me = cached;
+        const saved = store.get(`socialCache:${user.id}`, null);
+        if (saved) { friends = saved.friends || []; incoming = saved.incoming || []; outgoing = saved.outgoing || []; }
+        return true;
+      }
+    } catch { /* повреждённый кэш не мешает обычному восстановлению сессии */ }
+    return false;
+  }
   async function loadMe() {
-    const { data } = await sb.auth.getUser();
+    const { data, error } = await sb.auth.getUser();
+    if (error) {
+      if (error.status === 401 || error.status === 403) {
+        user = null; me = null; friends = []; incoming = []; outgoing = [];
+        store.set('profileCache', null); Chats.connect(); render();
+      }
+      throw error;
+    }
     user = data.user || null;
     if (!user) { me = null; store.set('profileCache', null); return; }
     const r = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+    if (r.error) throw r.error;
     me = r.data || null;
     if (me) store.set('profileCache', me);
   }
@@ -110,11 +132,13 @@ const Social = (() => {
     const [fr] = await Promise.all([
       sb.from('friendships').select(`*, rq:profiles!friendships_requester_fkey(${P}), ad:profiles!friendships_addressee_fkey(${P})`),
     ]);
+    if (fr.error) return;
     const rows = fr.data || [];
     friends = rows.filter((f) => f.status === 'accepted').map((f) => ({ f, p: f.requester === me.id ? f.ad : f.rq }))
       .sort((a, b) => a.p.display_name.localeCompare(b.p.display_name));
     incoming = rows.filter((f) => f.status === 'pending' && f.addressee === me.id).map((f) => ({ f, p: f.rq }));
     outgoing = rows.filter((f) => f.status === 'pending' && f.requester === me.id).map((f) => ({ f, p: f.ad }));
+    store.set(`socialCache:${me.id}`, { friends, incoming, outgoing });
     inbox = [];
     updateBadge();
     if (typeof Comments !== 'undefined') Comments.load();
@@ -135,6 +159,9 @@ const Social = (() => {
   async function refresh() {
     if (!sb) return;
     await loadMe();
+    Chats.connect();
+    if ($('#app').dataset.tab === 'chats') Chats.render();
+    if ($('[data-view=profile]').classList.contains('on')) render();
     await loadAll();
     if (me) await pull().catch(() => {});
     Chats.connect();
@@ -553,9 +580,8 @@ const Social = (() => {
           try { await removeAvatar(); refreshAva(); render(); toast('Фото убрано'); } catch { toast('Не получилось'); }
         }
         if (e.target.closest('[data-f=logout]')) {
-          await sb.auth.signOut();
-          me = null; user = null; friends = []; incoming = []; outgoing = []; inbox = [];
-          updateBadge(); closeSheet(); render(); toast('Вы вышли');
+          closeSheet();
+          await signOut();
         }
       });
       const refreshAva = () => {
@@ -743,10 +769,17 @@ const Social = (() => {
     sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'svitok-auth' },
     });
-    const { data: sessionData } = await sb.auth.getSession();
-    user = sessionData.session?.user || null;
+    if (restoreCachedIdentity()) { render(); Chats.connect(); }
+    const { data: sessionData, error: sessionError } = await sb.auth.getSession();
+    if (!sessionError) {
+      const nextUser = sessionData.session?.user || null;
+      if (nextUser?.id !== user?.id) { me = null; friends = []; incoming = []; outgoing = []; }
+      user = nextUser;
+    }
     const cached = store.get('profileCache', null);
     if (user && cached?.id === user.id) { me = cached; render(); }
+    Chats.connect();
+    if ($('#app').dataset.tab === 'chats') Chats.render();
     await refresh().catch(() => {});
     // в мини-аппе Telegram входим сами по подписанным данным Telegram
     if (!me && Tg.inTg) {
@@ -776,6 +809,7 @@ const Social = (() => {
     const { error } = await sb.auth.signOut();
     if (error) { toast('Не удалось выйти'); return; }
     me = null; user = null; friends = []; incoming = []; outgoing = []; inbox = [];
+    store.set('profileCache', null);
     Chats.connect();
     await Reminders.init();
     updateBadge(); openTab('profile'); render(); toast('Вы вышли из аккаунта');

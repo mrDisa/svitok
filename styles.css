@@ -895,3 +895,6 @@ html[data-feed-background="color"] #feed .scrim{background:rgba(0,0,0,.48)}
 .bible-opening{z-index:2;will-change:translate;pointer-events:none}
 .bible-previous{z-index:1;pointer-events:none!important;will-change:translate}
 .bible-previous-front{z-index:3;box-shadow:-16px 0 40px rgba(0,0,0,.28)}
+
+.settings-opening{z-index:2;opacity:1!important;transform:none!important;transition:none!important;will-change:translate;pointer-events:none;box-shadow:-16px 0 40px rgba(0,0,0,.28)}
+.settings-previous{position:absolute;inset:0;z-index:1;visibility:visible;opacity:1;transform:none;pointer-events:none!important;will-change:translate;background:var(--bg)}

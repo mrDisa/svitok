@@ -109,6 +109,7 @@ const Chats = (() => {
       el().innerHTML = `<div class="page-head"><h1>Чаты</h1></div><div class="p-card"><div class="auth-ico">${I.talk}</div><h2>Общайтесь с друзьями</h2><p>Войдите в профиль, чтобы писать друзьям, создавать группы и получать уведомления о новых сообщениях.</p><button class="btn-auth tg" data-chat-login>Войти в профиль</button></div>`;
       return;
     }
+    if (active && !requestedChat && $('[data-chat-back]', el())) return;
     active = null;
     const cached = store.get(`chatPreview:${me().id}`, []);
     const cachedJSON = JSON.stringify(cached);
