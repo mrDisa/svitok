@@ -36,7 +36,7 @@ function navigation() {
     $: (selector, parent) => selector === '#app' ? app : selector === '#sheet' ? sheet : selector === '#onb' || selector === '#dw' ? hidden : selector === '.view.on' ? view : parent === view ? back : null,
     $$: () => [],
   });
-  vm.runInContext(source.slice(source.indexOf('const edgeParents ='),source.indexOf('let appStarted =')) + '\nthis.api={rememberEdgeParent,edgeBackAction,initEdgeBack,edgeParents};',ctx);
+  vm.runInContext(source.slice(source.indexOf('const edgeParents ='),source.indexOf('let appStarted =')) + '\nthis.api={rememberEdgeParent,edgeBackAction,initEdgeBack,edgeParents,clearEdgeParents};',ctx);
   const api = ctx.api; api.initEdgeBack();
   const event = (x, y = 100) => ({touches:[{clientX:x,clientY:y}],changedTouches:[{clientX:x,clientY:y}],target:{closest:()=>null},cancelable:true,preventDefault(){}});
   return {api,view,nodes,
@@ -86,4 +86,13 @@ test('вертикальное движение не оставляет фон �
   const n=navigation();n.api.rememberEdgeParent(n.view);n.setBack();n.start();
   n.move(7,150);
   assert.equal(n.nodes.length,0);assert.equal(n.clicks,0);
+});
+
+test('чат сохраняет родителя на внешней view, даже если передан внутренний scroller', async () => {
+  const n=navigation();const inner={closest:selector=>selector==='.view'?n.view:null};
+  n.api.rememberEdgeParent(inner);n.view.text='Открытый чат';n.setBack();
+  assert.ok(n.api.edgeBackAction());
+  n.start();n.move(180);n.end(180);await n.finish();assert.equal(n.clicks,1);
+  n.api.rememberEdgeParent(inner);n.api.clearEdgeParents(inner);
+  assert.equal(n.api.edgeBackAction(),null);
 });

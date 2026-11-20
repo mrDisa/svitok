@@ -1013,8 +1013,11 @@ function edgeSnapshot(target) {
     return [node.scrollTop, node.scrollLeft];
   }) };
 }
+function edgeView(target) { return target?.closest?.('.view') || target; }
+function clearEdgeParents(target) { edgeParents.delete(edgeView(target)); }
 function rememberEdgeParent(child, parent = child) {
   if (!child || !parent) return;
+  child = edgeView(child); parent = edgeView(parent);
   const stack = child === parent ? (edgeParents.get(child) || []) : [];
   stack.push(edgeSnapshot(parent));
   if (stack.length > 20) stack.shift();

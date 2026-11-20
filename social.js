@@ -374,7 +374,7 @@ const Social = (() => {
     if (!sb) return;
     const ticket = ++profileRequest;
     const origin = $('.view.on')?.dataset.view || 'profile';
-    const saveRoute = () => { if (origin === 'profile' && (friendsPage || publicProfile)) rememberProfileRoute(); else if (origin !== 'profile') { profileHistory.length = 0; edgeParents.delete(el()); } };
+    const saveRoute = () => { if (origin === 'profile' && (friendsPage || publicProfile)) rememberProfileRoute(); else if (origin !== 'profile') { profileHistory.length = 0; clearEdgeParents(el()); } };
     if (id === me?.id) { saveRoute(); friendsPage = null; publicProfile = null; closeSheet(); openTab('profile'); render(); return; }
     let p;
     try {

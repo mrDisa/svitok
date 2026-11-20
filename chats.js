@@ -114,10 +114,10 @@ const Chats = (() => {
     const cachedJSON = JSON.stringify(cached);
     if (cached.length) { chats = cached; chats.forEach((c) => { if (c.members) memberCache.set(c.id, c.members); }); await drawList(); }
     else el().innerHTML = `<div class="page-head"><h1>Чаты</h1><p>Загружаем переписки…</p></div><div class="chat-loading"><i></i><i></i><i></i></div>`;
-    try { await load(); if (requestedChat) { const id = requestedChat; requestedChat = null; await drawList(); await open(id); } else if (!cached.length || JSON.stringify(chats) !== cachedJSON) await drawList(); } catch (e) { if (!cached.length) el().innerHTML = '<div class="empty">Не удалось загрузить чаты.<br>Проверьте интернет и попробуйте снова.</div>'; }
+    try { await load(); if (active) return; if (requestedChat) { const id = requestedChat; requestedChat = null; await drawList(); await open(id); } else if (!cached.length || JSON.stringify(chats) !== cachedJSON) await drawList(); } catch (e) { if (!cached.length) el().innerHTML = '<div class="empty">Не удалось загрузить чаты.<br>Проверьте интернет и попробуйте снова.</div>'; }
   }
   async function drawList() {
-    edgeParents.delete(el());
+    clearEdgeParents(el());
     const rows = await Promise.all(chats.map(async (c) => ({ c, ms: await members(c.id) })));
     el().innerHTML = `<div class="page-head"><h1>Чаты</h1><p>Только вы и ваши друзья</p></div><button class="chat-new" data-chat-new>${plus}Новый чат</button><div class="chat-list">${rows.length ? rows.map(({c,ms}) => {
       const other = ms.find((x) => x.user_id !== me().id)?.p || me(); const unread = c.last && (!c.last_read_at || new Date(c.last.created_at) > new Date(c.last_read_at)) && c.last.sender !== me().id;
@@ -188,6 +188,8 @@ const Chats = (() => {
       if (!chats.some(chat => chat.id === id)) throw new Error('chat_not_loaded');
       if (me()?.id !== owner) return false;
       if (sheet.isConnected && !sheet.hidden) closeSheet();
+      active = null;
+      await drawList();
       await open(id);
       return true;
     } catch (error) {

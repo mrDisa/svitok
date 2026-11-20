@@ -1,6 +1,6 @@
 /* Service Worker «Свитка»: офлайн-работа без сервера.
    При каждом обновлении сайта увеличивайте VERSION, чтобы телефоны получили новую версию. */
-const VERSION = 'svitok-v76';
+const VERSION = 'svitok-v77';
 const ART = 'svitok-art-v1'; // картины не меняются, кэш живёт между версиями
 const BIBLE = 'svitok-bible-v1'; // текст Библии не меняется, кэш живёт между версиями
 
@@ -38,14 +38,15 @@ const SHELL = [
 self.addEventListener('install', (e) => {
   // cache:'reload' — берём свежие файлы с сервера, а не из HTTP-кэша браузера (GitHub Pages держит их 10 минут)
   e.waitUntil((async () => {
-    // Неудача кэша отдельного шрифта/картины не должна блокировать push-worker.
-    const cache = await caches.open(VERSION).catch(() => null);
-    if (cache) await Promise.allSettled(SHELL.map(async url => {
+    // Шрифты и иконки кэшируются при использовании: их загрузка не задерживает обновление.
+    const cache = await caches.open(VERSION);
+    await Promise.all(SHELL.filter(url => url !== './' && !url.startsWith('fonts/') && !url.startsWith('icons/')).map(async url => {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 10000);
+      const timer = setTimeout(() => controller.abort(), 5000);
       try {
         const response = await fetch(new Request(url, { cache: 'reload', signal: controller.signal }));
-        if (response.ok) await cache.put(url, response);
+        if (!response.ok) throw new Error(`Не удалось загрузить ${url}`);
+        await cache.put(url, response);
       } finally { clearTimeout(timer); }
     }));
     await self.skipWaiting();
@@ -81,30 +82,30 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Страница: сеть с запасным вариантом из кэша (так обновления приходят сразу)
-  if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' })
-        .then((res) => { const copy = res.clone(); caches.open(VERSION).then((c) => c.put('index.html', copy)); return res; })
-        .catch(() => caches.match('index.html', { ignoreSearch: true }))
-    );
+  // Установленная версия уже скачала оболочку. Открываем её сразу, без ожидания сети.
+  // Код и документ обновляются вместе при установке нового VERSION, без смешивания версий.
+  const scope = self.registration.scope;
+  const shellPath = SHELL.find(path => new URL(path, scope).pathname === url.pathname);
+  if (req.mode === 'navigate' || shellPath) {
+    e.respondWith(caches.open(VERSION).then(async cache => {
+      const key = req.mode === 'navigate' ? 'index.html' : shellPath;
+      const hit = await cache.match(key, { ignoreSearch: true });
+      if (hit) return hit;
+      const response = await fetch(req, { cache: 'no-cache' });
+      if (response.ok) await cache.put(key, response.clone());
+      return response;
+    }));
     return;
   }
 
-  // Остальное: сначала сеть (чтобы обновления приходили сразу), без сети или
-  // при медленной сети — из кэша
-  e.respondWith(
-    caches.open(VERSION).then(async (c) => {
-      const net = fetch(req, { cache: 'no-cache' }).then((res) => { if (res.ok) c.put(req, res.clone()); return res; });
-      const slow = new Promise((_, rej) => setTimeout(() => rej(new Error('slow')), 3500));
-      try {
-        return await Promise.race([net, slow]);
-      } catch {
-        const hit = await c.match(req, { ignoreSearch: true });
-        return hit || net;
-      }
-    })
-  );
+  // Прочие статические ресурсы тоже не задерживают запуск при наличии локальной копии.
+  e.respondWith(caches.open(VERSION).then(async cache => {
+    const hit = await cache.match(req, { ignoreSearch: true });
+    if (hit) return hit;
+    const response = await fetch(req);
+    if (response.ok) await cache.put(req, response.clone());
+    return response;
+  }));
 });
 
 // Скачивание всей Библии для офлайна по запросу приложения
