@@ -59,8 +59,12 @@ const Goal = (() => {
     el.setAttribute('aria-label', `Цель на сегодня: ${Math.min(day.n, goal)} из ${goal}`);
   }
 
-  function count() {
+  // Только память текущего запуска: смена темы и синхронизация не обнуляют список.
+  const countedVerses = new Set();
+  function count(verseId) {
+    if (!verseId || countedVerses.has(verseId)) return;
     fresh();
+    countedVerses.add(verseId);
     day.n += 1;
     if (!day.done && day.n >= goal) {
       day.done = true;

@@ -883,9 +883,9 @@ html[data-feed-background="color"] #feed .scrim{background:rgba(0,0,0,.48)}
 
 /* Горизонтальный возврат: экран следует пальцу без задержки CSS-переходов. */
 .edge-back-dragging{transition:none!important;animation:none!important;will-change:translate}
-.edge-back-preview{position:absolute;z-index:25;overflow:hidden;background:var(--bg);pointer-events:none!important;box-shadow:-16px 0 40px rgba(0,0,0,.28);will-change:translate}
-.edge-back-preview.sheet{z-index:42}
 
 /* Родитель виден с первого движения пальца и не принимает нажатия. */
-.edge-back-underlay{position:absolute;inset:0;visibility:visible;opacity:1;transform:none;z-index:1!important;pointer-events:none!important;animation:none!important;transition:none!important;background:var(--bg)}
+.edge-back-underlay{position:absolute;inset:0;visibility:visible;opacity:1;transform:none;z-index:1!important;pointer-events:none!important;animation:none!important;transition:none!important;background:var(--bg);will-change:translate}
 .view.edge-back-dragging{z-index:2;background:var(--bg);box-shadow:-16px 0 40px rgba(0,0,0,.28)}
+
+.edge-back-restored{transition:none!important;animation:none!important}

@@ -169,7 +169,7 @@ const Plans = (() => {
     const t = e.target;
     let m;
     if ((m = t.closest('[data-plan]'))) { renderPlan(m.dataset.plan); return true; }
-    if ((m = t.closest('[data-plan-read]'))) { const d = byId(m.dataset.planRead); readDay(d.id, progress(d).next); return true; }
+    if ((m = t.closest('[data-plan-read]'))) { renderPlan(m.dataset.planRead); return true; }
     if ((m = t.closest('[data-plan-day]'))) { readDay(m.dataset.planId, +m.dataset.planDay); return true; }
     if (t.closest('[data-plan-next]')) { next(); return true; }
     if ((m = t.closest('[data-plan-toggle]'))) {

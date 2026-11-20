@@ -275,7 +275,7 @@ function onCardActive(card) {
       if (dwell > 5) bump(it.t, 0.4);
       else if (dwell < 1.2) bump(it.t, -0.25);
     }
-    if (dwell >= Goal.DWELL) Goal.count();
+    if (it && dwell >= Goal.DWELL) Goal.count(it.id);
   }
   if (activeCard) activeCard.classList.remove('is-active');
   card.classList.add('is-active');
@@ -1075,44 +1075,55 @@ function initEdgeBack() {
     if (profileChild) rememberEdgeParent($(`[data-view="${profileChild.dataset.f === 'settings' ? 'more' : 'saved'}"]`), view);
   }, true);
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const reset = (current) => {
+  const paint = current => {
+    current.target.style.translate = `${current.distance}px 0`;
+    if (current.underlay) current.underlay.style.translate = `${(current.distance - app.clientWidth) * .22}px 0`;
+  };
+  const reset = current => {
+    if (current.frame) cancelAnimationFrame(current.frame);
     current.target.style.translate = '';
     current.target.classList.remove('edge-back-dragging');
     current.underlay?.remove();
   };
   const settle = (current, commit = false) => {
     if (!current) return;
-    const { target, distance = 0 } = current;
+    if (current.frame) cancelAnimationFrame(current.frame);
+    const { target, distance = 0, underlay } = current;
     if (reduced() || !distance) { reset(current); if (commit) current.back(); return; }
-    if (!commit) {
-      settling = true;
-      const animation = target.animate([{ translate: `${distance}px 0` }, { translate: '0 0' }], { duration: 180, easing: 'cubic-bezier(.2,.8,.2,1)' });
-      target.style.translate = '';
-      animation.finished.catch(() => {}).finally(() => { reset(current); settling = false; });
-      return;
-    }
-    // Снимок уезжает поверх уже открытого предыдущего экрана, сохраняя его состояние.
-    const rect = target.getBoundingClientRect(), bounds = app.getBoundingClientRect();
-    const preview = target.cloneNode(true);
-    preview.removeAttribute('id');
-    $$('[id]', preview).forEach(node => node.removeAttribute('id'));
-    preview.classList.remove('view', 'on', 'edge-back-dragging');
-    preview.classList.add('edge-back-preview');
-    preview.inert = true; preview.setAttribute('aria-hidden', 'true');
-    Object.assign(preview.style, { left: `${rect.left - bounds.left - distance}px`, top: `${rect.top - bounds.top}px`, right: 'auto', bottom: 'auto', width: `${rect.width}px`, height: `${rect.height}px`, maxHeight: 'none', margin: '0', transform: 'none', translate: `${distance}px 0`, animation: 'none' });
-    app.appendChild(preview);
-    const originals = [target, ...$$('*', target)], copies = [preview, ...$$('*', preview)];
-    originals.forEach((node, i) => { copies[i].scrollTop = node.scrollTop; copies[i].scrollLeft = node.scrollLeft; if (node.matches('input,textarea,select')) copies[i].value = node.value; });
-    const underlay = current.underlay; current.underlay = null;
-    reset(current);
+    paint(current);
     settling = true;
-    try { current.back(); }
-    catch (error) { preview.remove(); underlay?.remove(); settling = false; throw error; }
-    const animation = preview.animate([{ translate: `${distance}px 0` }, { translate: `${bounds.width}px 0` }], { duration: 220, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'forwards' });
-    animation.finished.catch(() => {}).finally(() => {
-      const parent = $('.view.on');
-      if (underlay && parent) parent.scrollTop = underlay.scrollTop;
-      preview.remove(); underlay?.remove(); settling = false;
+    const end = commit ? app.clientWidth : 0;
+    const remaining = Math.abs(end - distance);
+    const duration = Math.max(180, Math.min(360, remaining / Math.max(Math.abs(current.velocity || 0), .85)));
+    const timing = { duration, easing: 'cubic-bezier(.22,.72,.16,1)', fill: 'forwards' };
+    // Продолжаем движение того же слоя: на отпускании пальца нет клонирования и перерисовки экрана.
+    const animations = [target.animate([{ translate: `${distance}px 0` }, { translate: `${end}px 0` }], timing)];
+    if (underlay) animations.push(underlay.animate([
+      { translate: `${(distance - app.clientWidth) * .22}px 0` },
+      { translate: `${(end - app.clientWidth) * .22}px 0` },
+    ], timing));
+    Promise.all(animations.map(animation => animation.finished.catch(() => {}))).finally(() => {
+      let parent;
+      try {
+        if (commit) {
+          // Не запускаем обычное появление вкладки поверх завершённого интерактивного перехода.
+          target.classList.add('edge-back-restored');
+          current.back();
+          parent = $('.view.on');
+          parent?.classList.add('edge-back-restored');
+        }
+      } finally {
+        requestAnimationFrame(() => {
+          if (commit && underlay && parent) parent.scrollTop = underlay.scrollTop;
+          reset(current);
+          animations.forEach(animation => animation.cancel());
+          settling = false;
+          requestAnimationFrame(() => {
+            target.classList.remove('edge-back-restored');
+            parent?.classList.remove('edge-back-restored');
+          });
+        });
+      }
     });
   };
   app.addEventListener('touchstart', (e) => {
@@ -1120,36 +1131,46 @@ function initEdgeBack() {
     gesture = null;
     if (settling || e.touches.length !== 1 || e.touches[0].clientX - app.getBoundingClientRect().left > 24 || e.target.closest('input,textarea,select,[contenteditable]')) return;
     const back = edgeBackAction(), target = !$('#sheet').hidden ? $('#sheet') : $('.view.on');
-    if (back) gesture = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: performance.now(), back, target, horizontal: false, distance: 0 };
+    if (!back) return;
+    gesture = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: performance.now(), back, target, horizontal: false, distance: 0, velocity: 0 };
+    gesture.lastX = gesture.x; gesture.lastTime = gesture.time;
+    if (!reduced()) {
+      const saved = edgeParents.get(target)?.at(-1);
+      if (saved && target.classList.contains('view')) {
+        const underlay = saved.copy.cloneNode(true);
+        underlay.removeAttribute('id');
+        $$('[id]', underlay).forEach(node => node.removeAttribute('id'));
+        underlay.classList.remove('view', 'on');
+        underlay.classList.add('edge-back-underlay');
+        underlay.inert = true; underlay.setAttribute('aria-hidden', 'true');
+        target.classList.add('edge-back-dragging');
+        target.before(underlay);
+        [underlay, ...$$('*', underlay)].forEach((node, i) => { node.scrollTop = saved.scroll[i][0]; node.scrollLeft = saved.scroll[i][1]; });
+        gesture.underlay = underlay;
+        paint(gesture);
+      }
+    }
   }, { passive: true });
   app.addEventListener('touchmove', (e) => {
     if (!gesture) return;
     if (e.touches.length !== 1) { settle(gesture); gesture = null; return; }
     const dx = e.touches[0].clientX - gesture.x, dy = e.touches[0].clientY - gesture.y;
     if (!gesture.horizontal) {
-      if ((Math.abs(dy) > 12 && Math.abs(dy) >= dx) || dx < -12) { gesture = null; return; }
+      if ((Math.abs(dy) > 12 && Math.abs(dy) >= dx) || dx < -12) { reset(gesture); gesture = null; return; }
       if (dx > 12 && dx > Math.abs(dy) * 1.5) gesture.horizontal = true;
     }
     if (gesture.horizontal) {
       if (e.cancelable) e.preventDefault();
       if (!reduced()) {
         gesture.distance = Math.max(0, Math.min(dx, app.clientWidth));
-        if (!gesture.underlay && gesture.target.classList.contains('view')) {
-          const saved = edgeParents.get(gesture.target)?.at(-1);
-          if (saved) {
-            const underlay = saved.copy.cloneNode(true);
-            underlay.removeAttribute('id');
-            $$('[id]', underlay).forEach(node => node.removeAttribute('id'));
-            underlay.classList.remove('view', 'on');
-            underlay.classList.add('edge-back-underlay');
-            underlay.inert = true; underlay.setAttribute('aria-hidden', 'true');
-            gesture.target.before(underlay);
-            [underlay, ...$$('*', underlay)].forEach((node, i) => { node.scrollTop = saved.scroll[i][0]; node.scrollLeft = saved.scroll[i][1]; });
-            gesture.underlay = underlay;
-          }
-        }
+        const now = performance.now();
+        gesture.velocity = (e.touches[0].clientX - gesture.lastX) / Math.max(now - gesture.lastTime, 1);
+        gesture.lastX = e.touches[0].clientX; gesture.lastTime = now;
         gesture.target.classList.add('edge-back-dragging');
-        gesture.target.style.translate = `${gesture.distance}px 0`;
+        if (!gesture.frame) {
+          const current = gesture;
+          current.frame = requestAnimationFrame(() => { current.frame = null; paint(current); });
+        }
       }
     }
   }, { passive: false });
@@ -1158,8 +1179,8 @@ function initEdgeBack() {
     if (!current) return;
     if (e.touches.length || !e.changedTouches.length) { settle(current); return; }
     const dx = e.changedTouches[0].clientX - current.x, dy = e.changedTouches[0].clientY - current.y;
-    const duration = performance.now() - current.time;
-    const commit = dx >= 72 && dx >= Math.abs(dy) * 1.5 && (dx >= app.clientWidth * .32 || dx / Math.max(duration, 1) >= .45);
+    const velocity = performance.now() - current.lastTime < 120 ? current.velocity : 0;
+    const commit = current.horizontal && dx >= 56 && dx >= Math.abs(dy) * 1.5 && velocity > -.15 && (dx >= app.clientWidth * .38 || velocity >= .45);
     if (commit) {
       if (e.cancelable) e.preventDefault();
       document.activeElement?.blur();
