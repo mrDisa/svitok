@@ -908,6 +908,7 @@ function renderMore() {
         <button class="switch${Comments.notifyOn() ? ' on' : ''}" data-cm-notify role="switch" aria-checked="${Comments.notifyOn()}" aria-label="Ответы в обсуждениях"><i></i></button></div>
     </div>
     <div class="group">
+      <button class="row" data-open-support><div class="grow">Поддержать Свиток<small>Домен, сервер и подготовка версии для iPhone</small></div>${I.heart}</button>
       <button class="row" data-share-app><div class="grow">Поделиться приложением<small>Отправьте ссылку друзьям и близким</small></div>${I.share}</button>
       ${Tg.inTg ? `<button class="row" data-tg-home hidden><div class="grow">Добавить на экран «Домой»<small>Иконка «Свитка» рядом с другими приложениями</small></div>${I.next}</button>` : ''}
       ${STANDALONE || Tg.inTg ? '' : `<a class="row" href="./#install" style="color:inherit;text-decoration:none"><div class="grow">Установить на экран «Домой»<small>Запуск как обычное приложение</small></div>${I.next}</a>`}
@@ -1062,7 +1063,7 @@ function rememberEdgeParent(child, parent = child) {
   if (stack.length > 20) stack.shift();
   edgeParents.set(child, stack);
 }
-const EDGE_BACK = '[data-chat-back],[data-f="public-back"],[data-f="friends-back"],[data-post-profile-back],[data-profile-back],[data-nav]';
+const EDGE_BACK = '[data-support-back],[data-chat-back],[data-f="public-back"],[data-f="friends-back"],[data-post-profile-back],[data-profile-back],[data-nav]';
 let settingsTransition = null;
 function animateSettingsOpen(saved, target) {
   if (!saved || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -1097,13 +1098,13 @@ function openTab(name) {
     if (name === 'bible' && bibleRoute.view !== 'books') renderBooks();
     return;
   }
-  const settingsTarget = name === 'more' && cur === 'profile' ? $('[data-view=more]') : null;
+  const settingsTarget = (name === 'more' && cur === 'profile') || (name === 'support' && ['more', 'profile'].includes(cur)) ? $(`[data-view="${name}"]`) : null;
   if (settingsTarget) rememberEdgeParent(settingsTarget, $('.view.on'));
   closeSheet();
   if (name !== 'bible') clearSelection();
   $('#app').dataset.tab = name;
   $$('.view').forEach((v) => v.classList.toggle('on', v.dataset.view === name));
-  $$('#tabbar button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name || (name === 'posts' && b.dataset.tab === 'feed')));
+  $$('#tabbar button').forEach((b) => b.classList.toggle('on', b.dataset.tab === name || (['more', 'support', 'saved'].includes(name) && b.dataset.tab === 'profile') || (name === 'posts' && b.dataset.tab === 'feed')));
   $('.topbar').classList.toggle('hidden', name !== 'feed' && name !== 'posts');
   $$('.home-header [data-home]').forEach(button => {
     const active = button.dataset.home === name;
@@ -1116,6 +1117,7 @@ function openTab(name) {
   if (name === 'posts') Posts.render();
   if (name === 'more') { renderMore(); Reminders.refresh().then((changed) => { if (changed && $('[data-view=more]').classList.contains('on')) renderMore(); }); }
   if (name === 'profile') { Social.render(); Comments.load(); }
+  if (name === 'support') Support.render();
   if (settingsTarget) animateSettingsOpen(edgeParents.get(settingsTarget)?.at(-1), settingsTarget);
 }
 
@@ -1293,18 +1295,23 @@ async function startApp() {
   initSaved();
   initMore();
   initEdgeBack();
+  Support.init();
   const socialReady = Social.init();
   Chats.init();
   Posts.init();
   Comments.init();
   Goal.init();
-  Onboarding.init();
-  socialReady.then(() => PushOnboarding.reconcile()).catch(() => {});
+  if (location.hash !== '#support') {
+    Onboarding.init();
+    socialReady.then(() => PushOnboarding.reconcile()).catch(() => {});
+  }
   // открыли по ссылке на стих (из Telegram) — сразу показываем главу вместо «Слова дня»
   const link = Tg.verseLink();
   if (link && BOOKS[link.b] && link.c >= 1 && link.c <= BOOKS[link.b].c) {
     openTab('bible');
     openChapter(link.b, link.c, [link.v, link.v]);
+  } else if (location.hash === '#support') {
+    Support.open();
   } else if (['#chats', '#bible'].includes(location.hash)) {
     const tab = location.hash.slice(1);
     openTab(tab);
@@ -1313,7 +1320,7 @@ async function startApp() {
 
   $('#tabbar').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) openTab(b.dataset.tab); });
   $('#sheet-backdrop').addEventListener('click', closeSheet);
-  $('#install-pill').hidden = STANDALONE || Tg.inTg || S.pillHidden;
+  $('#install-pill').hidden = $('#app').dataset.tab !== 'feed' || STANDALONE || Tg.inTg || S.pillHidden;
   $('[data-hide-pill]').addEventListener('click', () => { S.pillHidden = true; store.set('pillHidden', true); $('#install-pill').hidden = true; });
 
   // Вся Библия тихо скачивается для офлайна в установленном приложении

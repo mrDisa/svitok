@@ -37,7 +37,7 @@
 <link rel="preload" href="data/books.json" as="fetch" crossorigin>
 <link rel="preload" href="data/paintings.json" as="fetch" crossorigin>
 <link rel="preload" href="fonts/ptserif-400-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="styles.css?v=79">
+<link rel="stylesheet" href="styles.css?v=81">
 <script>
   // Решаем до отрисовки, что показывать: лендинг или само приложение,
   // чтобы при запуске с экрана «Домой» лендинг даже не мелькнул.
@@ -293,6 +293,7 @@
 
   <footer class="l-foot">
     <a class="brand" href="./"><img src="icons/icon-192.png" alt="" width="24" height="24"><span>Свиток</span></a>
+    <a class="l-support-link" href="./?pwa=1#support">Поддержать развитие Свитка</a>
     <p>Бесплатное приложение. Текст Библии — Синодальный перевод. Картина — Рембрандт, «Голова Христа». Оба — общественное достояние.</p>
   </footer>
 </div>
@@ -315,6 +316,7 @@
     <section class="view" data-view="posts"><div class="scroller" id="posts"></div></section>
     <section class="view" data-view="profile"><div class="scroller" id="profile"></div></section>
     <section class="view" data-view="more"><div class="scroller" id="more"></div></section>
+    <section class="view" data-view="support"><div class="scroller" id="support"></div></section>
   </main>
 
   <nav class="tabbar" id="tabbar">
@@ -351,6 +353,7 @@
 <script src="tg.js" defer></script>
 <script src="reminders.js" defer></script>
 <script src="comments.js" defer></script>
-<script src="app.js?v=79" defer></script>
+<script src="support.js" defer></script>
+<script src="app.js?v=81" defer></script>
 </body>
 </html>
