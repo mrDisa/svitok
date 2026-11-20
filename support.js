@@ -7,6 +7,7 @@ const Support = (() => {
   let origin = 'profile';
   const root = () => $('#support');
   function open() {
+    SupportPrompt.markSeen();
     const current = $('.view.on')?.dataset.view;
     origin = ['more', 'profile'].includes(current) ? current : 'profile';
     openTab('support');
@@ -47,7 +48,12 @@ const Support = (() => {
     return ok;
   }
   function init() {
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && document.documentElement.classList.contains('mode-app')) { SupportPrompt.start(); SupportPrompt.maybeShow(); }
+    });
     document.addEventListener('click', async e => {
+      if (e.target.closest('[data-support-notice-close]')) { SupportPrompt.close(); return; }
+      if (e.target.closest('[data-support-notice-open]')) { SupportPrompt.close(); open(); return; }
       if (e.target.closest('[data-open-support]')) { e.preventDefault(); open(); return; }
       if (e.target.closest('[data-support-back]')) { openTab(origin); return; }
       if (e.target.closest('[data-support-copy]')) { await copy(); return; }
@@ -61,4 +67,47 @@ const Support = (() => {
     });
   }
   return { init, open, render, url: URL, page: PAGE };
+})();
+
+
+/* Одно знакомство с поддержкой: только при запуске, после двух дней использования. */
+const SupportPrompt = (() => {
+  const WAIT = 48 * 60 * 60 * 1000;
+  let attempted = false;
+  const dialog = () => $('#support-notice');
+  const dayKey = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  };
+  function start() {
+    attempted = false;
+    if (document.hidden || store.get('supportNoticeSeen', false)) return;
+    const previous = store.get('supportUsage', {});
+    const first = Number(previous.firstUsedAt);
+    const state = {
+      firstUsedAt: Number.isFinite(first) && first > 0 && first <= Date.now() ? first : Date.now(),
+      days: [...new Set([...(Array.isArray(previous.days) ? previous.days : []), dayKey()])].sort().slice(-3),
+    };
+    store.set('supportUsage', state);
+  }
+  function markSeen() {
+    store.set('supportNoticeSeen', true);
+    // Если браузер запретил сохранение, не показываем экран с риском повторения после запуска.
+    return store.get('supportNoticeSeen', false) === true;
+  }
+  function close() { if (dialog()?.open) dialog().close(); }
+  function maybeShow() {
+    if (attempted) return false;
+    attempted = true;
+    const usage = store.get('supportUsage', {});
+    if (document.hidden || store.get('supportNoticeSeen', false) || !store.get('onboarded', false)) return false;
+    if (!Number.isFinite(usage.firstUsedAt) || Date.now() - usage.firstUsedAt < WAIT || (usage.days || []).length < 2) return false;
+    if ($('#app').dataset.tab !== 'feed' || !$('#onb').hidden || !$('#dw').hidden || !$('#sheet').hidden) return false;
+    const el = dialog();
+    if (typeof el?.showModal !== 'function' || !markSeen()) return false;
+    el.showModal();
+    $('[data-support-notice-close]', el)?.focus({preventScroll:true});
+    return true;
+  }
+  return { start, maybeShow, markSeen, close };
 })();

@@ -927,3 +927,19 @@ html[data-feed-background="color"] #feed .scrim{background:rgba(0,0,0,.48)}
 .support-share{margin:8px 0 0;border:1px solid var(--line);border-radius:14px}
 .l-support-link{color:var(--gold-2);font-size:15px;text-underline-offset:4px}
 @media(max-width:560px){.support-hero{padding:24px 16px}.support-qr-section{flex-direction:column;align-items:flex-start}.support-qr{width:228px;max-width:100%;align-self:center}}
+
+/* Разовое знакомство с поддержкой: без таймеров, повторов и блокировки чтения. */
+.faq-support{margin-top:20px}
+.support-notice{position:fixed;inset:0;margin:auto;width:min(440px,calc(100% - 32px));max-height:calc(100dvh - 48px);overflow:auto;border:1px solid var(--line);border-radius:24px;padding:28px 24px;background:var(--bg-2);color:var(--text);box-sizing:border-box;box-shadow:0 24px 80px rgba(0,0,0,.35)}
+.support-notice::backdrop{background:rgba(0,0,0,.55)}
+.support-notice[open]{animation:support-notice-in .24s ease-out}
+.support-notice-icon{font-size:38px;line-height:1;color:var(--gold-2);margin-bottom:18px}
+.support-notice h1{font-family:var(--serif);font-size:29px;line-height:1.2;margin:0 0 16px}
+.support-notice p{font-size:16px;line-height:1.6;color:var(--muted);margin:0 0 18px}
+.support-notice .support-notice-settings{font-size:15px;margin-bottom:24px}
+.support-notice-settings b{font-weight:500;color:var(--text)}
+.support-notice button{width:100%}
+.support-notice-close{min-height:48px;padding:12px;margin-top:8px;color:var(--text);font-size:16px;border-radius:14px}
+.support-notice-close:focus-visible{outline:2px solid var(--gold-2);outline-offset:2px}
+@keyframes support-notice-in{from{opacity:0;translate:0 10px}to{opacity:1;translate:0 0}}
+@media(prefers-reduced-motion:reduce){.support-notice[open]{animation:none}}

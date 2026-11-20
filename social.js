@@ -171,7 +171,7 @@ const Social = (() => {
   }
 
   /* ---------------- синхронизация прогресса с аккаунтом ---------------- */
-  const SYNC_KEYS = ['saved', 'likes', 'weights', 'goal', 'day', 'streak', 'plans', 'last', 'privacy'];
+  const SYNC_KEYS = ['saved', 'likes', 'weights', 'goal', 'day', 'streak', 'plans', 'last', 'privacy', 'supportNoticeSeen'];
   let rawSet = null;          // исходный store.set (без отметки «есть изменения»)
   let dirty = false;
   let syncTimer = null;
@@ -179,6 +179,7 @@ const Social = (() => {
 
   function collect() {
     return {
+      supportNoticeSeen: store.get('supportNoticeSeen', false),
       v: 1, saved: store.get('saved', []), likes: store.get('likes', []), weights: store.get('weights', {}),
       goal: store.get('goal', null), day: store.get('day', null), streak: store.get('streak', null),
       plans: store.get('plans', {}), last: store.get('last', null), privacy: store.get('privacy', { saved: true, likes: true, comments: true }),
@@ -208,6 +209,7 @@ const Social = (() => {
       saved: [...savedMap.values()].sort((a, b) => (b.ts || 0) - (a.ts || 0)),
       likes: [...new Set([...(r.likes || []), ...(l.likes || [])])],
       weights: { ...(r.weights || {}), ...(l.weights || {}) },
+      supportNoticeSeen: !!(l.supportNoticeSeen || r.supportNoticeSeen),
       goal: l.goal ?? r.goal, day, streak, plans, last: l.last || r.last, privacy: { saved: true, likes: true, comments: true, ...(r.privacy || {}), ...(l.privacy || {}) },
     };
   }

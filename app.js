@@ -1123,7 +1123,7 @@ function openTab(name) {
 
 // Горизонтальный свайп вправо повторяет доступную кнопку «Назад» текущего экрана.
 function edgeBackAction() {
-  if (!$('#onb').hidden || !$('#dw').hidden) return null;
+  if (!$('#onb').hidden || !$('#dw').hidden || $('#support-notice')?.open) return null;
   if (!$('#sheet').hidden) return () => closeSheet(false);
   const view = $('.view.on');
   if ((view?.classList.contains('bible-transitioning') || view?.classList.contains('settings-opening'))) return null;
@@ -1301,6 +1301,7 @@ async function startApp() {
   Posts.init();
   Comments.init();
   Goal.init();
+  SupportPrompt.start();
   if (location.hash !== '#support') {
     Onboarding.init();
     socialReady.then(() => PushOnboarding.reconcile()).catch(() => {});
@@ -1316,7 +1317,7 @@ async function startApp() {
     const tab = location.hash.slice(1);
     openTab(tab);
     socialReady.then(() => { if ($('#app').dataset.tab === tab && tab === 'chats') { const id = new URLSearchParams(location.search).get('chat'); if (id) Chats.navigate(id); else Chats.render(); } });
-  } else DailyWord.maybeShow();
+  } else if (!SupportPrompt.maybeShow()) DailyWord.maybeShow();
 
   $('#tabbar').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) openTab(b.dataset.tab); });
   $('#sheet-backdrop').addEventListener('click', closeSheet);

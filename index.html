@@ -37,7 +37,7 @@
 <link rel="preload" href="data/books.json" as="fetch" crossorigin>
 <link rel="preload" href="data/paintings.json" as="fetch" crossorigin>
 <link rel="preload" href="fonts/ptserif-400-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="styles.css?v=81">
+<link rel="stylesheet" href="styles.css?v=82">
 <script>
   // Решаем до отрисовки, что показывать: лендинг или само приложение,
   // чтобы при запуске с экрана «Домой» лендинг даже не мелькнул.
@@ -59,7 +59,7 @@
   <header class="l-nav" id="l-nav">
     <div class="l-nav-in">
       <a class="brand" href="./"><img src="icons/icon-192.png" alt="" width="28" height="28"><span>Свиток</span></a>
-      <nav class="l-links"><a href="#features">Возможности</a><a href="#install">Установка</a><a href="#faq">Вопросы</a></nav>
+      <nav class="l-links"><a href="#features">Возможности</a><a href="#install">Установка</a><a href="#faq">Вопросы</a><a href="./?pwa=1#support">Поддержать</a></nav>
       <a class="btn btn-small btn-line" href="#install">Как начать</a>
     </div>
   </header>
@@ -270,6 +270,7 @@
       <div class="sec-head rv">
         <span class="kicker">Вопросы</span>
         <h2>Коротко о главном</h2>
+        <a class="btn btn-small btn-line faq-support" href="./?pwa=1#support">Поддержать Свиток</a>
       </div>
       <div class="faq-list">
         <details class="rv"><summary>Это правда бесплатно?</summary><p>Да, навсегда. Без рекламы, подписок и платных функций. Слово Божие не должно стоить денег.</p></details>
@@ -340,11 +341,19 @@
   <div class="toast" id="toast" role="status"></div>
   <div class="onb" id="onb" hidden></div>
   <div class="dw" id="dw" hidden></div>
+  <dialog class="support-notice" id="support-notice" aria-labelledby="support-notice-title" aria-describedby="support-notice-description">
+    <div class="support-notice-icon" aria-hidden="true">♡</div>
+    <h1 id="support-notice-title">Свиток можно поддержать</h1>
+    <p id="support-notice-description">Приложение остаётся бесплатным. Если оно помогает вам, можно поддержать домен, сервер и подготовку версии для iPhone.</p>
+    <p class="support-notice-settings">В любое время это можно сделать в профиле: <b>Настройки → Поддержать Свиток</b>.</p>
+    <button class="support-primary" data-support-notice-open>Поддержать Свиток</button>
+    <button class="support-notice-close" data-support-notice-close autofocus>Продолжить чтение</button>
+  </dialog>
 </div>
 
 <script src="config.js" defer></script>
 <script src="vendor/supabase-2.45.4.js" defer></script>
-<script src="social.js?v=79" defer></script>
+<script src="social.js?v=82" defer></script>
 <script src="chats.js?v=79" defer></script>
 <script src="posts.js?v=64" defer></script>
 <script src="onboarding.js" defer></script>
@@ -354,6 +363,6 @@
 <script src="reminders.js" defer></script>
 <script src="comments.js" defer></script>
 <script src="support.js" defer></script>
-<script src="app.js?v=81" defer></script>
+<script src="app.js?v=82" defer></script>
 </body>
 </html>

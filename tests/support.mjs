@@ -5,8 +5,10 @@ import vm from 'node:vm';
 
 const bank='https://messenger.sbrf.ru/sl/PaICte6EsQj2AhmcD';
 function page({origin='more',copyWorks=true,share=null}={}){
+  const saved=new Map();
   const root={innerHTML:''},copies=[],notices=[],tabs=[];let click;
   const ctx=vm.createContext({
+    store:{get:(k,d)=>saved.get(k)??d,set:(k,v)=>saved.set(k,v)},
     $:selector=>selector==='#support'?root:{dataset:{view:origin}},I:{back:'',copy:'',share:''},
     openTab:name=>tabs.push(name),copyText:async text=>{copies.push(text);return copyWorks;},toast:text=>notices.push(text),
     navigator:{share},document:{addEventListener:(type,fn)=>{click=fn;}},
